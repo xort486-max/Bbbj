@@ -1,6 +1,6 @@
 package com.jarvis.app
 
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.assertIsDisplayed
@@ -77,6 +77,44 @@ class ScreenshotTest {
                 ),
             ),
             "main_claude_reasoning",
+        )
+    }
+
+    @Test
+    fun mainSearchAnswerWithSources() {
+        val log = ConversationLog()
+            .append(ConversationMessage(ConversationMessage.Role.USER, "유로 2024 우승팀 알려줘"))
+            .append(
+                ConversationMessage(
+                    ConversationMessage.Role.ASSISTANT,
+                    "[화면 점검용 예시] Spain won Euro 2024, defeating England 2-1 in the final.",
+                    AiEngine.GOOGLE,
+                    sources = listOf(
+                        com.jarvis.core.model.SourceLink("aljazeera.com", "https://www.aljazeera.com/"),
+                        com.jarvis.core.model.SourceLink("uefa.com", "https://www.uefa.com/"),
+                    ),
+                    sourceProvider = "google",
+                    searchSuggestionsHtml = "<div>suggestions</div>",
+                ),
+            )
+        val (tasks, id) = TaskBoard().start("웹 검색", AiEngine.GOOGLE)
+        render(
+            MainUiState(
+                machine = JarvisStateMachine().forced(JarvisState.Completed),
+                log = log,
+                tasks = tasks.finish(id, com.jarvis.core.model.JarvisTask.Status.SUCCEEDED, "GOOGLE · 토큰 80"),
+                backend = ConnectionStatus.Connected,
+                engines = AiEngine.remoteEngines.associateWith { ConnectionStatus.Configured },
+                usage = com.jarvis.core.network.UsageResponse(
+                    "2026-11-21", "Asia/Seoul",
+                    listOf(
+                        com.jarvis.core.network.EngineUsage("nvidia", 12, 0, 0, 900, 400, 0, 0),
+                        com.jarvis.core.network.EngineUsage("google", 3, 0, 0, 60, 180, 3, 0),
+                        com.jarvis.core.network.EngineUsage("claude", 1, 0, 0, 1200, 800, 2, 50),
+                    ),
+                ),
+            ),
+            "main_search_sources",
         )
     }
 

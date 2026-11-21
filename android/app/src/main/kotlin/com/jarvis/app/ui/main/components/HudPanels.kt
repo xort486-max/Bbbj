@@ -50,6 +50,7 @@ import com.jarvis.app.ui.theme.hudPanel
 import com.jarvis.core.model.AiEngine
 import com.jarvis.core.model.ConnectionStatus
 import com.jarvis.core.model.JarvisTask
+import com.jarvis.core.network.UsageResponse
 import com.jarvis.core.state.JarvisState
 
 /** 패널 제목 (예: "// CURRENT TASK"). */
@@ -132,6 +133,7 @@ fun EngineStatusStrip(
     backend: ConnectionStatus,
     engines: Map<AiEngine, ConnectionStatus>,
     activeEngine: AiEngine?,
+    usage: UsageResponse?,
     onRefresh: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().hudPanel(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -144,12 +146,12 @@ fun EngineStatusStrip(
                 Icon(Icons.Outlined.Refresh, contentDescription = "엔진 상태 새로고침", tint = JarvisColors.Cyan)
             }
         }
-        // API 사용량: 요청 기록은 PHASE 2, 대시보드는 PHASE 7에서 구현.
+        // API 사용량 (백엔드 /v1/usage — 오늘 기준). 상세 대시보드는 PHASE 7.
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.BarChart, null, tint = JarvisColors.TextDim, modifier = Modifier.size(12.dp))
             Spacer(Modifier.width(4.dp))
             Text(
-                "API 사용량 · AI 연결(PHASE 2) 후 표시됩니다",
+                usageLabel(usage),
                 style = JarvisType.hud(9.sp, color = JarvisColors.TextDim),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -159,6 +161,16 @@ fun EngineStatusStrip(
             Text(backend.reason, style = JarvisType.body(11.sp, color = JarvisColors.Failure), maxLines = 2)
         }
     }
+}
+
+private fun usageLabel(usage: UsageResponse?): String {
+    if (usage == null) return "오늘 API 사용량 · 백엔드 연결 후 표시"
+    val perEngine = AiEngine.remoteEngines.joinToString(" · ") { engine ->
+        val u = usage.of(engine)
+        val limit = u?.dailyLimit?.takeIf { it > 0 }?.let { "/$it" } ?: ""
+        "${engine.displayName} ${u?.requests ?: 0}$limit"
+    }
+    return "오늘 $perEngine · 토큰 ${usage.totalTokens}"
 }
 
 @Composable

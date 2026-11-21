@@ -8,7 +8,7 @@ API Key 값은 어떤 형태로도(일부 마스킹 포함) 응답하지 않는�
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from ..config import Settings
+from ..config import IMPLEMENTED_GOOGLE_PROVIDERS, Settings
 from ..security import get_settings, require_app_token
 
 router = APIRouter(prefix="/v1", tags=["engines"], dependencies=[Depends(require_app_token)])
@@ -44,10 +44,11 @@ def engines(settings: Settings = Depends(get_settings)) -> EnginesResponse:
     claude_missing = settings.claude_missing()
 
     google_note = _note(google_missing)
-    if settings.google_search_provider == "custom_search":
-        google_note = (google_note + " · " if google_note else "") + (
-            "Custom Search JSON API는 2027-01-01 종료 예정입니다."
-        )
+    provider = settings.google_search_provider
+    if provider and provider not in IMPLEMENTED_GOOGLE_PROVIDERS and provider in _GOOGLE_PROVIDER_NAMES:
+        google_note = (google_note + " · " if google_note else "") + "이 제공자는 구현되지 않았습니다 (구현: gemini_grounding)"
+    if provider == "custom_search":
+        google_note = (google_note + " · " if google_note else "") + "Custom Search JSON API는 2027-01-01 종료 예정입니다."
 
     return EnginesResponse(
         engines=[
@@ -60,8 +61,9 @@ def engines(settings: Settings = Depends(get_settings)) -> EnginesResponse:
             ),
             EngineInfo(
                 id="google",
-                configured=not google_missing,
-                provider=_GOOGLE_PROVIDER_NAMES.get(settings.google_search_provider or "", "미선택"),
+                configured=settings.google_ready,
+                provider=_GOOGLE_PROVIDER_NAMES.get(provider or "", "미선택"),
+                model=settings.gemini_model if provider == "gemini_grounding" else None,
                 note=google_note,
             ),
             EngineInfo(

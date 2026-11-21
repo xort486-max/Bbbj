@@ -2,10 +2,17 @@ package com.jarvis.app
 
 import com.jarvis.app.data.SettingsStore
 import com.jarvis.app.data.TokenStore
+import com.jarvis.core.network.AssistEvent
+import com.jarvis.core.network.AssistService
+import com.jarvis.core.network.HistoryTurn
 import com.jarvis.core.network.HttpResponse
 import com.jarvis.core.network.HttpTransport
+import com.jarvis.core.routing.Route
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flow
 
 class FakeSettingsStore(initialUrl: String = "") : SettingsStore {
     private val url = MutableStateFlow(initialUrl)
@@ -33,5 +40,30 @@ class StubTransport(private val routes: Map<String, Pair<Int, String>> = emptyMa
         val path = java.net.URI(request.url).path
         val (status, body) = routes[path] ?: (404 to """{"detail":"not found"}""")
         return HttpResponse(status, body)
+    }
+}
+
+/** 미리 정한 이벤트를 내보내는 가짜 AI 서비스. */
+class FakeAssistService(
+    private vararg val events: AssistEvent,
+    private val hang: Boolean = false,
+    private val throwOnStart: Exception? = null,
+) : AssistService {
+    val calls = mutableListOf<Triple<Route, String, List<HistoryTurn>>>()
+    var cancelled = false
+
+    override fun assist(route: Route, text: String, history: List<HistoryTurn>): Flow<AssistEvent> {
+        calls += Triple(route, text, history)
+        return flow {
+            throwOnStart?.let { throw it }
+            events.forEach { emit(it) }
+            if (hang) {
+                try {
+                    awaitCancellation()
+                } finally {
+                    cancelled = true
+                }
+            }
+        }
     }
 }

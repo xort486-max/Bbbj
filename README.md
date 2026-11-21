@@ -11,9 +11,19 @@
 
 ## 화면 미리보기
 
-| 대기 | Claude 추론 중 | 오류 | 설정 |
-|---|---|---|---|
-| ![](android/app/screenshots/main_idle.png) | ![](android/app/screenshots/main_claude_reasoning.png) | ![](android/app/screenshots/main_error.png) | ![](android/app/screenshots/settings.png) |
+| 대기 | Claude 추론 중 | 검색 답변 + 출처 | 오류 | 설정 |
+|---|---|---|---|---|
+| ![](android/app/screenshots/main_idle.png) | ![](android/app/screenshots/main_claude_reasoning.png) | ![](android/app/screenshots/main_search_sources.png) | ![](android/app/screenshots/main_error.png) | ![](android/app/screenshots/settings.png) |
+
+## 요청 처리
+
+| 말하면 | 경로 | 엔진 |
+|---|---|---|
+| "안녕 자비스", "블랙홀이 뭐야?" | 대화 | NVIDIA |
+| "오늘 서울 날씨", "최신 AI 뉴스" | 검색 | Google (Gemini Grounding) — 출처·검색 제안 표시 |
+| "전기차 시장 동향 조사해서 분석해줘" | 검색 분석 | Claude + 웹 검색 |
+| "파이썬 자동화 프로젝트 기획해줘" | 에이전트 | Claude |
+| "7시에 알람 맞춰줘" | 기기 기능 | 로컬 (PHASE 4) |
 
 (Robolectric + Roborazzi로 실제 Compose 렌더링 결과를 기록한 이미지)
 
@@ -37,6 +47,12 @@ uvicorn app.main:app --reload --env-file .env --host 0.0.0.0 --port 8000
 ```
 
 확인: 브라우저에서 `http://localhost:8000/health`
+
+실제 AI API 연결 점검 (키 입력 후, 비용 소량 발생):
+
+```powershell
+python -m scripts.live_check            # nvidia / google / claude 각각 짧은 요청
+```
 
 ### 2. 앱 실행
 

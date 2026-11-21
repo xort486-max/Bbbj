@@ -106,12 +106,23 @@ private fun MessageRow(message: ConversationMessage) {
             }
         }
 
-        ConversationMessage.Role.ASSISTANT -> Column(Modifier.padding(end = 32.dp).semantics(mergeDescendants = true) {}) {
+        ConversationMessage.Role.ASSISTANT -> Column(
+            Modifier.padding(end = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             Text(
                 "JARVIS" + (message.engine?.let { " · ${it.displayName}" } ?: ""),
                 style = JarvisType.hud(9.sp, FontWeight.Bold, JarvisColors.Cyan),
             )
-            SelectionContainer { Text(message.text, style = JarvisType.body(14.sp)) }
+            SelectionContainer {
+                Text(
+                    message.text + if (message.isStreaming) " ▍" else "",
+                    style = JarvisType.body(14.sp),
+                )
+            }
+            // Gemini 근거 결과: 검색 제안 위젯과 출처를 답변과 함께 표시 (약관)
+            message.searchSuggestionsHtml?.let { SearchSuggestions(it) }
+            SourceLinks(message.sources, message.sourceProvider)
         }
 
         ConversationMessage.Role.SYSTEM -> Row(
@@ -179,6 +190,7 @@ fun QuickActionsBar(onSelect: (JarvisFeature) -> Unit) {
 fun CommandInputBar(
     microphoneAvailable: Boolean,
     busy: Boolean,
+    placeholder: String = "명령을 입력하세요",
     onSubmit: (String) -> Unit,
     onMicrophone: () -> Unit,
 ) {
@@ -202,7 +214,7 @@ fun CommandInputBar(
             Icon(Icons.Outlined.ChevronRight, null, tint = JarvisColors.Cyan, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
             Box(Modifier.weight(1f).padding(vertical = 14.dp)) {
-                if (input.text.isEmpty()) Text("명령을 입력하세요", style = JarvisType.body(15.sp, color = JarvisColors.TextDim))
+                if (input.text.isEmpty()) Text(placeholder, style = JarvisType.body(15.sp, color = JarvisColors.TextDim))
                 BasicTextField(
                     state = input,
                     lineLimits = TextFieldLineLimits.SingleLine,

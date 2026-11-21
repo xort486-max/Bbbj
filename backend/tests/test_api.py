@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import DEFAULT_CLAUDE_MODEL, DEFAULT_NVIDIA_BASE_URL, Settings
+from app.config import DEFAULT_CLAUDE_MODEL, DEFAULT_NVIDIA_BASE_URL, DEFAULT_NVIDIA_MODEL, Settings
 from app.main import create_app
 
 TOKEN = "test-app-token"
@@ -24,7 +24,7 @@ def auth(token: str = TOKEN) -> dict[str, str]:
 def test_health_is_public_and_minimal():
     response = client_for().get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "service": "jarvis-backend", "version": "0.1.0"}
+    assert response.json() == {"status": "ok", "service": "jarvis-backend", "version": "0.2.0"}
 
 
 # --- 인증 -------------------------------------------------------------------
@@ -55,7 +55,7 @@ def test_engines_report_missing_configuration():
     assert set(engines) == {"nvidia", "google", "claude"}
     assert all(not e["configured"] for e in engines.values())
     assert "NVIDIA_API_KEY" in engines["nvidia"]["note"]
-    assert "NVIDIA_MODEL" in engines["nvidia"]["note"]
+    assert engines["nvidia"]["model"] == DEFAULT_NVIDIA_MODEL
     assert "GOOGLE_SEARCH_PROVIDER" in engines["google"]["note"]
     assert engines["claude"]["model"] == DEFAULT_CLAUDE_MODEL
 
@@ -89,8 +89,8 @@ def test_custom_search_shows_shutdown_notice():
         GOOGLE_CSE_ID="cx",
     ).get("/v1/engines", headers=auth())
     google = next(e for e in response.json()["engines"] if e["id"] == "google")
-    assert google["configured"] is True
-    assert "2027-01-01" in google["note"]
+    assert google["configured"] is False, "구현되지 않은 제공자는 '설정됨'으로 표시하지 않는다"
+    assert "2027-01-01" in google["note"] and "구현되지 않았습니다" in google["note"]
 
 
 def test_unknown_google_provider_is_not_configured():
@@ -106,8 +106,10 @@ def test_unknown_google_provider_is_not_configured():
 
 
 def test_settings_defaults_and_trimming():
-    settings = Settings.from_env({"NVIDIA_MODEL": "  m  ", "NVIDIA_API_KEY": "   ", "CLAUDE_MODEL": ""})
+    settings = Settings.from_env({"NVIDIA_MODEL": "  m  ", "NVIDIA_API_KEY": "   ", "CLAUDE_MODEL": "", "CLAUDE_EFFORT": "bogus"})
     assert settings.nvidia_model == "m"
+    assert settings.claude_effort == "medium"
+    assert Settings.from_env({}).nvidia_model == DEFAULT_NVIDIA_MODEL
     assert settings.nvidia_api_key is None
     assert settings.nvidia_base_url == DEFAULT_NVIDIA_BASE_URL
     assert settings.claude_model == DEFAULT_CLAUDE_MODEL

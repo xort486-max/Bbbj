@@ -178,7 +178,7 @@ fun SettingsScreen(ui: MainUiState, savedUrl: String, versionName: String, actio
 
         Section("// ABOUT") {
             StatusText("버전", versionName)
-            StatusText("개발 단계", "PHASE 1 — 기본 프로젝트")
+            StatusText("개발 단계", "PHASE 2 — AI 엔진 연결")
         }
         Spacer(Modifier.padding(8.dp))
     }

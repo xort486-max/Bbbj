@@ -15,10 +15,11 @@ enum class JarvisFeature(val title: String, val plannedPhase: Int) {
     PROJECT("프로젝트", 5),
     VIDEO("영상", 6);
 
-    /** 실제로 동작하는 구현이 앱에 들어 있는지. PHASE 1에서는 모두 false. */
+    /** 실제로 동작하는 구현이 앱에 들어 있는지. */
     val isImplemented: Boolean
         get() = when (this) {
-            VOICE, SEARCH, CALENDAR, ALARM, NOTE, PROJECT, VIDEO -> false
+            SEARCH -> true // PHASE 2: Google(Gemini Grounding) 검색
+            VOICE, CALENDAR, ALARM, NOTE, PROJECT, VIDEO -> false
         }
 
     val availabilityLabel: String

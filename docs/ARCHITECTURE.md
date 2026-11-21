@@ -1,6 +1,6 @@
 # JARVIS (Android) — 기술 설계서
 
-> 최종 수정: 2026-11-21 (PHASE 1, Android 전환)
+> 최종 수정: 2026-11-21 (PHASE 2 — AI 엔진 연결)
 
 ## 0. 플랫폼 전환 기록
 - 2026-11-21: 개발 PC가 Windows라서 iOS(Xcode 필요)에서 **Android (Kotlin + Jetpack Compose)** 로 전환.
@@ -15,7 +15,7 @@
 │  ViewModel      MainViewModel (StateFlow<MainUiState>)                      │
 │      │                                                                      │
 │  :core 모듈     상태 머신 · 대화 기록 · 작업 보드 · 백엔드 클라이언트(OkHttp) │
-│  (순수 Kotlin)   ↳ PHASE 2+: CommandClassifier · CommandRouter              │
+│  (순수 Kotlin)   CommandClassifier · AssistService(SSE 스트림)              │
 │      │                                                                      │
 │  기기 서비스     SpeechRecognizer · TextToSpeech · CalendarContract ·        │
 │  (PHASE 3~4)    AlarmClock 인텐트 · 파일(SAF) · 공유 · 앱 바로가기           │
@@ -26,7 +26,7 @@
 ┌──────▼──────────────── JARVIS 백엔드 (Python FastAPI) ─────────────────────┐
 │  인증 · 라우팅 · 캐싱 · 중복 차단 · 사용량 기록 · 일일 한도 · 로그             │
 │  ├─ NVIDIA 모듈   → integrate.api.nvidia.com/v1 (Chat Completions)          │
-│  ├─ Google 모듈   → 검색 제품 (§4, PHASE 2 착수 전 선택)                     │
+│  ├─ Google 모듈   → Gemini API Grounding with Google Search (§4)            │
 │  ├─ Claude 모듈   → Anthropic Messages API + Tool Use                       │
 │  └─ 작업 엔진     → 프로젝트 작업 공간 · 문서 · FFmpeg 영상 합성               │
 │  비밀값: 환경변수 / 서버 비밀 관리 기능                                        │
@@ -41,20 +41,40 @@
 4. **상태 전이는 검증된다.** `JarvisStateMachine`이 허용되지 않은 전이를 막는다.
 5. **화면은 상태 없는 Composable** (`MainScreen(ui, actions)`) → 스냅샷 테스트로 디자인 회귀 확인.
 
-## 2. 요청 분배 (PHASE 2에서 구현)
+## 2. 요청 분배 (PHASE 2 구현 완료)
 
 ```
-사용자 입력(음성/텍스트)
+사용자 입력 (텍스트 · PHASE 3부터 음성)
    ▼
-로컬 명령 분류기 (기기 내, 규칙 + 키워드, 비용 0)
-   ├─ 기기 기능 (일정, 알람, 메모, URL 열기)          → 로컬 명령 엔진
-   ├─ 일반 대화 / 간단 질문                           → NVIDIA
-   ├─ 웹·뉴스·기술 검색                              → Google
-   ├─ 검색 + 분석 요청                               → Google → Claude
-   └─ 복잡한 명령 / 기획 / 코드 / 문서 / 다단계       → Claude (Tool Use)
+로컬 명령 분류기 CommandClassifier (:core, 규칙 기반, 기기 안, 비용 0)
+   ├─ DEVICE   일정·알람·메모 + 동작어       → 로컬 명령 엔진 (PHASE 4, 지금은 안내만)
+   ├─ CHAT     일반 대화 (기본값)            → NVIDIA  nvidia/nemotron-3.5-lightning-30b-a3b
+   ├─ SEARCH   최신 정보·뉴스·날씨·가격       → Google  Gemini Grounding (gemini-4-hydrogen)
+   ├─ RESEARCH 검색 + 분석·비교·요약          → Claude  + 웹 검색 서버 도구 (web_search_20260209)
+   └─ AGENT    기획·코드·문서·대본·다단계      → Claude  (claude-opus-5-5, effort medium)
+   ▼
+앱 → POST /v1/assist {route, text, history(최근 20개)} → SSE 스트림
+     route · notice · stage · delta · sources · done · error
 ```
 
-Claude 호출 최소화(백엔드): 요청 캐시, 중복 차단, 대화 요약, 토큰 기록, API별 일일 한도, 한도 초과 시 대체 처리.
+**왜 "검색 결과 분석"을 Gemini → Claude로 넘기지 않는가:** Gemini API 추가 약관(Grounding with Google Search)은
+근거 결과·검색 제안을 *캐시·수정·제3자가 분석*하는 것을 금지한다. 그래서 검색+분석은 Claude가 자체 웹 검색 도구로
+직접 처리하고, 단순 검색만 Gemini가 처리해 **원문 그대로 + 출처 + 검색 제안 위젯**과 함께 표시한다.
+
+**비용·안정성 장치 (백엔드)**
+
+| 장치 | 동작 |
+|---|---|
+| 로컬 분류기 | 애매하면 가장 저렴한 NVIDIA로. 복잡한 작업만 Claude |
+| 중복 요청 차단 | 처리 중인 동일 요청(경로·입력·맥락) → 409 |
+| 응답 캐시 | Claude(agent·research) 응답만 10분 캐시. Google 결과는 약관상 캐시 안 함 |
+| 대화 기록 제한 | 최근 20개, 16,000자 이내만 전송 (요약은 PHASE 7) |
+| 사용량 기록 | 요청별 엔진·모델·경로·토큰·검색 수·지연 시간 (SQLite, **본문 미저장**) → `GET /v1/usage` |
+| 일일 한도 | `DAILY_LIMIT_*` 초과 시 research→Google, agent→NVIDIA 대체 + 안내, 대체 불가면 429 |
+| 엔진 미설정 | 같은 대체 규칙, 불가하면 503과 누락된 환경변수 이름 안내 |
+| 재시도 | NVIDIA·Gemini: 429/5xx/네트워크 오류를 첫 응답 전까지 지수 백오프로 최대 3회. Claude: SDK 자동 재시도 2회 |
+| Claude 거절 | `fallbacks: "default"`(서버 측 대체 모델) 사용, 최종 거절 시 오류로 표시 |
+| 취소 | 앱에서 "중단" → 스트림 연결 종료 → 백엔드 처리 중단, 사용량에 cancelled 기록 |
 
 ## 3. 상태 모델
 
@@ -79,10 +99,13 @@ Claude 호출 최소화(백엔드): 요청 캐시, 중복 차단, 대화 요약,
 | 선택지 | 범위 | 현황 / 비고 |
 |---|---|---|
 | Custom Search JSON API | 웹 전체 / 이미지 | **신규 고객 접수 중단, 2027-01-01 종료 예정** — 신규 개발에 부적합 |
+| **(선택됨) Gemini API — Grounding with Google Search** | 웹 전체 | 아래 행 참고. 2026-11-21 PHASE 2에서 구현 |
 | Vertex AI Search | 지정한 사이트·데이터 저장소 | Google 공식 대체 제품. 공개 웹 전체 검색 용도 아님 |
 | Gemini API — Grounding with Google Search | 웹 전체 | `groundingMetadata`(검색어, 출처 URI·제목) 제공. **Google Search Suggestions 표시 요건**, 쿼리당 과금(Gemini 3). 이미지 검색 결과 없음 |
 
-백엔드는 `GOOGLE_SEARCH_PROVIDER`로 교체 가능. PHASE 2 착수 전 사용자 선택 필요.
+Interactions API (`POST /v1beta/interactions`, `Api-Revision: 2026-05-20`, `store: false`)를 사용한다.
+약관 준수: 결과 원문 그대로 표시 · 검색 제안 위젯(HTML) 함께 표시 · 링크는 외부 브라우저로 바로 열기(추적 없음) ·
+캐시/서버 저장 없음 · 다른 AI에 전달하지 않음. 이미지 검색 결과는 제공되지 않는다.
 
 ## 5. Android 플랫폼 기능과 제약 (각 단계 구현 전 공식 문서로 재확인)
 
@@ -132,10 +155,12 @@ Bbbj/
 └── ios/                             # 보관 (개발 중단)
 ```
 
-PHASE 2 이후 추가 예정: `core/…/routing`(분류기·라우터), `backend/app/engines/{nvidia,google,claude}.py`,
-`backend/app/usage/`, `app/…/voice`(STT·TTS·웨이크워드), `app/…/device`(캘린더·알람·파일).
+PHASE 2 추가: `core/…/routing`(분류기), `core/…/network/AssistService`(SSE), `backend/app/engines/{nvidia,gemini_search,claude}.py`,
+`backend/app/services/{usage,guard,container}.py`, `backend/app/routers/{assist,usage}.py`, `backend/scripts/live_check.py`.
+PHASE 3 이후: `app/…/voice`(STT·TTS·웨이크워드), `app/…/device`(캘린더·알람·파일).
 
 ## 8. 기술 스택 (2026-11 기준 최신 안정 버전)
 
 AGP 9.5.2 · Gradle 9.9.2 · Kotlin 2.4.21 · Compose BOM 2026.11.01 (Material3 1.5.0) · compileSdk 37.2 · targetSdk 36 · minSdk 26 ·
 OkHttp 5.5.1 · kotlinx.serialization 1.13.0 · Coroutines 1.11.0 · DataStore 1.3.0 · Robolectric 4.18.1 · Roborazzi 1.79.0
+백엔드: Python 3.13 · FastAPI 0.165 · anthropic 2.12.0 · httpx2 2.16.2

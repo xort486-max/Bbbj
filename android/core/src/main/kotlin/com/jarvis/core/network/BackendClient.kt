@@ -35,6 +35,26 @@ data class EngineInfo(
 @Serializable
 private data class ErrorBody(val detail: String? = null)
 
+/** `GET /v1/usage` 응답 — 오늘의 엔진별 사용량. */
+@Serializable
+data class UsageResponse(val day: String, val timezone: String, val engines: List<EngineUsage>) {
+    val totalRequests: Int get() = engines.sumOf { it.requests }
+    val totalTokens: Int get() = engines.sumOf { it.inputTokens + it.outputTokens }
+    fun of(engine: AiEngine): EngineUsage? = engines.firstOrNull { it.engine == engine.id }
+}
+
+@Serializable
+data class EngineUsage(
+    val engine: String,
+    val requests: Int,
+    val errors: Int,
+    val cached: Int,
+    @kotlinx.serialization.SerialName("input_tokens") val inputTokens: Int,
+    @kotlinx.serialization.SerialName("output_tokens") val outputTokens: Int,
+    @kotlinx.serialization.SerialName("search_queries") val searchQueries: Int,
+    @kotlinx.serialization.SerialName("daily_limit") val dailyLimit: Int,
+)
+
 sealed class BackendException(message: String) : Exception(message) {
     class MissingToken : BackendException("앱 인증 토큰이 설정되지 않았습니다. 설정에서 토큰을 입력하세요.")
     class Unauthorized : BackendException("앱 인증 토큰이 올바르지 않습니다.")
@@ -49,8 +69,7 @@ sealed class BackendException(message: String) : Exception(message) {
 /**
  * JARVIS 백엔드 HTTP 클라이언트.
  *
- * PHASE 1: 상태 확인(`/health`, `/v1/engines`)만 제공한다.
- * PHASE 2에서 대화·검색·에이전트 엔드포인트를 추가한다.
+ * 상태 확인(`/health`, `/v1/engines`)과 사용량(`/v1/usage`). AI 요청 스트림은 [BackendAssistService].
  */
 class BackendClient(
     val configuration: BackendConfiguration,
@@ -64,6 +83,9 @@ class BackendClient(
 
     /** 백엔드에 설정된 엔진 목록 (인증 필요). */
     suspend fun engines(): EnginesResponse = get("/v1/engines", authenticated = true, EnginesResponse.serializer())
+
+    /** 오늘의 API 사용량 (인증 필요). */
+    suspend fun usage(): UsageResponse = get("/v1/usage", authenticated = true, UsageResponse.serializer())
 
     internal fun buildRequest(path: String, authenticated: Boolean): HttpRequest {
         val headers = buildMap {

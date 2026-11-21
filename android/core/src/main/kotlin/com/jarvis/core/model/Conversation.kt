@@ -10,6 +10,14 @@ data class ConversationMessage(
     val engine: AiEngine? = null,
     val id: String = UUID.randomUUID().toString(),
     val timestampMillis: Long = System.currentTimeMillis(),
+    /** 답변 출처 (검색 결과 링크). */
+    val sources: List<SourceLink> = emptyList(),
+    /** "google" = Gemini 근거 결과(원문 그대로 표시), "claude_web_search" = Claude 웹 검색 출처 */
+    val sourceProvider: String? = null,
+    /** Google 검색 제안 위젯 HTML (Gemini Grounding 약관상 근거 결과와 함께 표시) */
+    val searchSuggestionsHtml: String? = null,
+    /** 스트리밍 응답이 아직 이어지는 중인지 */
+    val isStreaming: Boolean = false,
 ) {
     enum class Role {
         /** 사용자 발화/입력 */
@@ -45,5 +53,11 @@ data class ConversationLog(
     fun updateText(id: String, text: String): ConversationLog =
         copy(messages = messages.map { if (it.id == id) it.copy(text = text) else it })
 
+    fun update(id: String, transform: (ConversationMessage) -> ConversationMessage): ConversationLog =
+        copy(messages = messages.map { if (it.id == id) transform(it) else it })
+
     fun cleared(): ConversationLog = copy(messages = emptyList())
 }
+
+/** 출처 링크. */
+data class SourceLink(val title: String, val url: String)

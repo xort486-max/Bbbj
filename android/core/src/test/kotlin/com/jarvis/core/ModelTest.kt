@@ -73,12 +73,14 @@ class TaskBoardTest {
 
 class FeatureAndStatusTest {
     @Test
-    fun phaseOneMarksNothingAsImplemented() {
-        // PHASE 1은 UI 골격만 제공한다. 동작하지 않는 기능을 "사용 가능"으로 표시하면 안 된다.
-        for (feature in JarvisFeature.entries) {
-            assertFalse(feature.isImplemented, "$feature should not be implemented in PHASE 1")
+    fun onlyActuallyImplementedFeaturesAreMarkedReady() {
+        // 동작하지 않는 기능을 "사용 가능"으로 표시하면 안 된다. PHASE 2 기준: 검색만 구현.
+        val implemented = JarvisFeature.entries.filter { it.isImplemented }
+        assertEquals(listOf(JarvisFeature.SEARCH), implemented)
+        for (feature in JarvisFeature.entries - JarvisFeature.SEARCH) {
             assertEquals("PHASE ${feature.plannedPhase} 예정", feature.availabilityLabel)
         }
+        assertEquals("사용 가능", JarvisFeature.SEARCH.availabilityLabel)
     }
 
     @Test

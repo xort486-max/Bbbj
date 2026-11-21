@@ -6,13 +6,16 @@ import com.jarvis.app.data.KeystoreTokenStore
 import com.jarvis.app.data.SettingsStore
 import com.jarvis.app.data.TokenStore
 import com.jarvis.core.network.HttpTransport
+import com.jarvis.core.network.OkHttpSseTransport
 import com.jarvis.core.network.OkHttpTransport
+import com.jarvis.core.network.SseTransport
 
 /** 앱 전역 의존성 (간단한 수동 DI). */
 class AppContainer(
     val settings: SettingsStore,
     val tokens: TokenStore,
     val transport: HttpTransport,
+    val sse: SseTransport,
 )
 
 class JarvisApplication : Application() {
@@ -25,6 +28,7 @@ class JarvisApplication : Application() {
             settings = DataStoreSettingsStore(this),
             tokens = KeystoreTokenStore(this),
             transport = OkHttpTransport(),
+            sse = OkHttpSseTransport(),
         )
     }
 }

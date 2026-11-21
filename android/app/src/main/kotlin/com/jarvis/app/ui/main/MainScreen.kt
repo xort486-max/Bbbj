@@ -70,7 +70,7 @@ fun MainScreen(ui: MainUiState, actions: MainActions) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             StatusHeader(state, ui.microphone, actions.onSettings)
-            EngineStatusStrip(ui.backend, ui.engines, state.activeEngine, actions.onRefresh)
+            EngineStatusStrip(ui.backend, ui.engines, state.activeEngine, ui.usage, actions.onRefresh)
 
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 ArcReactorCore(state, ui.audioLevel, Modifier.size(200.dp))
@@ -91,6 +91,7 @@ fun MainScreen(ui: MainUiState, actions: MainActions) {
             CommandInputBar(
                 microphoneAvailable = JarvisFeature.VOICE.isImplemented,
                 busy = state.isBusy,
+                placeholder = if (ui.pendingRoute == com.jarvis.core.routing.Route.SEARCH) "검색어를 입력하세요 (Google 검색)" else "명령을 입력하세요",
                 onSubmit = actions.onSubmit,
                 onMicrophone = actions.onMicrophone,
             )
