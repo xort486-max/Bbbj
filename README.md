@@ -6,7 +6,7 @@
 - 유료 Claude API는 비용 문제로 사용하지 않습니다 (2026-11-21 결정)
 - API Key는 백엔드에만 저장: `Android 앱 ↔ HTTPS 백엔드 ↔ AI 제공자`
 
-설계: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · 진행 상황: [`PROJECT_STATUS.md`](PROJECT_STATUS.md)
+**PC 설정 가이드: [`docs/PC_SETUP.md`](docs/PC_SETUP.md)** · 설계: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · 진행 상황: [`PROJECT_STATUS.md`](PROJECT_STATUS.md)
 
 > 2026-11-21: 개발 PC가 Windows이므로 iOS에서 Android로 전환했습니다. 이전 iOS 코드는 `ios/`에 보관(개발 중단)되어 있습니다.
 
