@@ -6,11 +6,27 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 import threading
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta, timezone, tzinfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+logger = logging.getLogger("jarvis.usage")
+
+# 시간대 DB가 없는 환경(Windows 기본 설치 등)을 위한 대체 고정 시차
+_FALLBACK_OFFSETS = {"Asia/Seoul": 9, "Asia/Tokyo": 9, "UTC": 0, "Etc/UTC": 0}
+
+
+def resolve_timezone(name: str) -> tzinfo:
+    """IANA 시간대를 찾는다. Windows처럼 시간대 DB가 없으면(tzdata 미설치) 고정 시차로 대체한다."""
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        hours = _FALLBACK_OFFSETS.get(name, 0)
+        logger.warning("시간대 '%s'를 찾을 수 없어 UTC%+d 고정 시차를 사용합니다 (pip install tzdata 권장)", name, hours)
+        return timezone(timedelta(hours=hours), name)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS usage_log (
@@ -44,7 +60,7 @@ class EngineUsage:
 
 class UsageStore:
     def __init__(self, path: str, tz: str = "Asia/Seoul", clock=lambda: datetime.now(timezone.utc)):
-        self.tz = ZoneInfo(tz)
+        self.tz = resolve_timezone(tz)
         self.clock = clock
         self._lock = threading.Lock()
         self._db = sqlite3.connect(path, check_same_thread=False)

@@ -3,3 +3,5 @@ fastapi==0.165.0
 uvicorn[standard]==0.54.0
 python-dotenv==1.2.4
 httpx2==2.16.2
+# Windows에는 IANA 시간대 DB가 없어 zoneinfo가 Asia/Seoul을 찾으려면 필요
+tzdata==2025.2

@@ -277,3 +277,21 @@ def test_usage_is_recorded_without_content(route):
     assist(client, route, "개인적인 질문 내용")
     dump = "\n".join(services.usage._db.iterdump())
     assert "개인적인 질문 내용" not in dump and "비밀 답변" not in dump and "Spain" not in dump
+
+
+def test_timezone_falls_back_when_tz_database_missing(monkeypatch):
+    """Windows 기본 Python처럼 시간대 DB가 없어도 서버가 죽지 않아야 한다."""
+    import zoneinfo
+    from datetime import datetime, timezone
+
+    from app.services import usage as usage_module
+
+    def missing(name):
+        raise zoneinfo.ZoneInfoNotFoundError(name)
+
+    monkeypatch.setattr(usage_module, "ZoneInfo", missing)
+    store = usage_module.UsageStore(":memory:", "Asia/Seoul",
+                                    clock=lambda: datetime(2026, 11, 21, 16, 0, tzinfo=timezone.utc))
+    assert store.today() == "2026-11-22"  # UTC 16시 = 한국 다음날 01시
+    store.record(engine="nvidia", model="m", route="chat", status="ok")
+    assert store.summary()[0].requests == 1

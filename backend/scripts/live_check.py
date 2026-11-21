@@ -79,4 +79,8 @@ async def main(selected: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    # Windows 콘솔(cp949)에서 ✅/❌ 같은 문자 때문에 출력 오류가 나지 않도록
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
     sys.exit(asyncio.run(main(sys.argv[1:])))
