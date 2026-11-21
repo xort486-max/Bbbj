@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  디버그 빌드 전용: PC에서 실행하는 로컬 백엔드(http://10.0.2.2:8000, http://192.168.x.x:8000)에 접속하기 위해
+  HTTP를 허용한다. 앱 코드(BackendConfiguration)가 HTTP는 localhost·사설망 주소로만 제한한다.
+  릴리스 빌드에는 포함되지 않는다.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

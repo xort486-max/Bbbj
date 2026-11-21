@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="jarvis_background">#FF03060E</color>
+    <color name="ic_launcher_background">#FF040B18</color>
+
+    <!-- 화면은 Compose가 그리므로 시스템 테마는 배경색과 상태바만 지정한다. -->
+    <style name="Theme.Jarvis" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/jarvis_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

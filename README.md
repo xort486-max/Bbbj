@@ -1,63 +1,59 @@
-# JARVIS iOS
+# JARVIS — Personal AI Assistant (Android)
 
-음성으로 대화하고, 검색하고, 계획하고, 실제 기능을 실행하는 개인용 AI 비서 (iOS · SwiftUI).
+음성으로 대화하고, 검색하고, 계획하고, 실제 기능을 실행하는 개인용 AI 비서 (Android · Kotlin · Jetpack Compose).
 
 - 대화: NVIDIA API Catalog · 검색: Google · 추론/에이전트: Claude API
-- API Key는 백엔드에만 저장: `iOS 앱 ↔ HTTPS 백엔드 ↔ AI 제공자`
+- API Key는 백엔드에만 저장: `Android 앱 ↔ HTTPS 백엔드 ↔ AI 제공자`
 
 설계: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · 진행 상황: [`PROJECT_STATUS.md`](PROJECT_STATUS.md)
 
-## 빠른 시작
+> 2026-11-21: 개발 PC가 Windows이므로 iOS에서 Android로 전환했습니다. 이전 iOS 코드는 `ios/`에 보관(개발 중단)되어 있습니다.
 
-### 1. 백엔드 (Windows · Mac · 서버)
+## 화면 미리보기
 
-Windows (PowerShell):
+| 대기 | Claude 추론 중 | 오류 | 설정 |
+|---|---|---|---|
+| ![](android/app/screenshots/main_idle.png) | ![](android/app/screenshots/main_claude_reasoning.png) | ![](android/app/screenshots/main_error.png) | ![](android/app/screenshots/settings.png) |
+
+(Robolectric + Roborazzi로 실제 Compose 렌더링 결과를 기록한 이미지)
+
+## 빠른 시작 (Windows)
+
+### 준비물
+- [Android Studio](https://developer.android.com/studio) 최신 버전 (JDK·Android SDK 포함)
+- Python 3.10 이상 (백엔드)
+- Android 휴대폰(Android 8.0 이상) 또는 Android Studio 에뮬레이터
+
+### 1. 백엔드 실행 (PowerShell)
 
 ```powershell
 cd backend
 py -m venv .venv
-.venv\Scripts\Activate.ps1   # 실행 정책 오류 시: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+.venv\Scripts\Activate.ps1      # 실행 정책 오류 시: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 pip install -r requirements-dev.txt
-copy .env.example .env       # 메모장으로 열어 JARVIS_APP_TOKEN 입력
+copy .env.example .env          # 메모장으로 열어 JARVIS_APP_TOKEN 입력
 pytest
 uvicorn app.main:app --reload --env-file .env --host 0.0.0.0 --port 8000
 ```
 
 확인: 브라우저에서 `http://localhost:8000/health`
 
-Mac / Linux:
+### 2. 앱 실행
 
-```bash
-cd backend
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt
-cp .env.example .env        # 값 입력 (최소: JARVIS_APP_TOKEN)
-pytest                      # 테스트
-uvicorn app.main:app --reload --env-file .env --host 0.0.0.0 --port 8000
-```
+1. Android Studio → **Open** → `android` 폴더 선택 (Gradle 동기화 자동 진행)
+2. 상단 기기 목록에서 에뮬레이터 또는 USB로 연결한 휴대폰 선택 → ▶ Run
+   - 휴대폰: 설정 → 휴대전화 정보 → 빌드번호 7번 탭 → 개발자 옵션 → **USB 디버깅** 켜기
+3. 앱 오른쪽 위 ⚙ → 설정
+   - 백엔드 주소 — 에뮬레이터: `http://10.0.2.2:8000` / 휴대폰: 같은 Wi-Fi에서 `http://<PC IP>:8000`
+     (PC IP 확인: PowerShell `ipconfig` → IPv4 주소. Windows 방화벽에서 8000 포트 허용 필요)
+   - 앱 인증 토큰 — `.env`의 `JARVIS_APP_TOKEN` 값
+   - **연결 테스트** → "연결됨"
 
-확인: `curl http://localhost:8000/health`
+### 3. 테스트 (명령줄)
 
-### 2. iOS 앱 (Mac + Xcode 16 이상)
-
-> iOS 앱 빌드는 Apple 정책상 macOS의 Xcode에서만 가능합니다. Windows 사용자는 클라우드 Mac
-> (GitHub Actions macOS 러너, 임대 Mac 등)으로 빌드합니다 — `PROJECT_STATUS.md` 참고.
-
-```bash
-brew install xcodegen
-cd ios
-xcodegen generate           # JARVIS.xcodeproj 생성
-open JARVIS.xcodeproj
-```
-
-1. `project.yml`의 번들 ID를 바꾸거나 Xcode > Signing & Capabilities에서 팀 선택
-2. iPhone 시뮬레이터에서 실행 (⌘R), 테스트 (⌘U)
-3. 앱 설정(⚙︎)에서 백엔드 주소와 앱 토큰(`JARVIS_APP_TOKEN` 값) 입력
-   - 시뮬레이터: `http://localhost:8000`
-   - 실기기: 같은 Wi-Fi에서 `http://<Mac의 IP>:8000` (첫 접속 시 로컬 네트워크 권한 허용)
-
-### 3. 핵심 로직만 테스트 (Xcode 없이)
-
-```bash
-cd ios/Packages/JarvisCore && swift test
+```powershell
+cd android
+.\gradlew.bat :core:test :app:testDebugUnitTest      # 단위 테스트
+.\gradlew.bat :app:recordRoborazziDebug             # 화면 스냅샷 갱신 → app/screenshots/
+.\gradlew.bat :app:assembleDebug                    # APK → app/build/outputs/apk/debug/
 ```

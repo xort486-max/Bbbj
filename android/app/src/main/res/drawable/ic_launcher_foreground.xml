@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- JARVIS 아크 리액터 아이콘 (적응형 아이콘 전경, 108dp 캔버스 / 안전 영역 66dp) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M88.00,54.00L92.50,54.00M89.20,58.63L92.17,59.03M88.29,63.19L91.19,63.96M86.80,67.59L89.57,68.73M83.44,71.00L87.34,73.25M82.16,75.61L84.54,77.44M79.10,79.10L81.22,81.22M75.61,82.16L77.44,84.54M71.00,83.44L73.25,87.34M67.59,86.80L68.73,89.57M63.19,88.29L63.96,91.19M58.63,89.20L59.03,92.17M54.00,88.00L54.00,92.50M49.37,89.20L48.97,92.17M44.81,88.29L44.04,91.19M40.41,86.80L39.27,89.57M37.00,83.44L34.75,87.34M32.39,82.16L30.56,84.54M28.90,79.10L26.78,81.22M25.84,75.61L23.46,77.44M24.56,71.00L20.66,73.25M21.20,67.59L18.43,68.73M19.71,63.19L16.81,63.96M18.80,58.63L15.83,59.03M20.00,54.00L15.50,54.00M18.80,49.37L15.83,48.97M19.71,44.81L16.81,44.04M21.20,40.41L18.43,39.27M24.56,37.00L20.66,34.75M25.84,32.39L23.46,30.56M28.90,28.90L26.78,26.78M32.39,25.84L30.56,23.46M37.00,24.56L34.75,20.66M40.41,21.20L39.27,18.43M44.81,19.71L44.04,16.81M49.37,18.80L48.97,15.83M54.00,20.00L54.00,15.50M58.63,18.80L59.03,15.83M63.19,19.71L63.96,16.81M67.59,21.20L68.73,18.43M71.00,24.56L73.25,20.66M75.61,25.84L77.44,23.46M79.10,28.90L81.22,26.78M82.16,32.39L84.54,30.56M83.44,37.00L87.34,34.75M86.80,40.41L89.57,39.27M88.29,44.81L91.19,44.04M89.20,49.37L92.17,48.97" android:strokeColor="#FF4FC8F0" android:strokeWidth="0.8" android:strokeLineCap="round" />
+    <path android:pathData="M56.44,23.60A30.5,30.5 0 0,1 83.04,63.32M79.11,71.31A30.5,30.5 0 0,1 31.41,74.49M26.45,67.09A30.5,30.5 0 0,1 47.55,24.19" android:strokeColor="#4400D9FF" android:strokeWidth="6" android:strokeLineCap="round" />
+    <path android:pathData="M56.44,23.60A30.5,30.5 0 0,1 83.04,63.32M79.11,71.31A30.5,30.5 0 0,1 31.41,74.49M26.45,67.09A30.5,30.5 0 0,1 47.55,24.19" android:strokeColor="#FF00D9FF" android:strokeWidth="3.2" android:strokeLineCap="round" />
+    <path android:pathData="M29.50,54.00a24.5,24.5 0 1,0 49.0,0a24.5,24.5 0 1,0 -49.0,0Z" android:strokeColor="#FF2A6E9E" android:strokeWidth="0.7" />
+    <path android:pathData="M37.00,54.00a17,17 0 1,0 34,0a17,17 0 1,0 -34,0Z" android:fillColor="#3300D9FF" />
+    <path android:pathData="M40.50,54.00a13.5,13.5 0 1,0 27.0,0a13.5,13.5 0 1,0 -27.0,0Z" android:fillColor="#FF19DCFF" />
+    <path android:pathData="M45.50,54.00a8.5,8.5 0 1,0 17.0,0a8.5,8.5 0 1,0 -17.0,0Z" android:fillColor="#AAE8FCFF" />
+    <path android:pathData="M54.00,46.00L60.93,58.00L47.07,58.00Z" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.3" android:strokeLineJoin="round" />
+</vector>

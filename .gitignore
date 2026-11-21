@@ -26,3 +26,15 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
+
+# --- Android / Gradle ---
+.gradle/
+.kotlin/
+android/build/
+android/*/build/
+android/local.properties
+*.apk
+*.aab
+*.jks
+*.keystore
+captures/
