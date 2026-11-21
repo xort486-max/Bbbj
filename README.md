@@ -9,7 +9,23 @@
 
 ## 빠른 시작
 
-### 1. 백엔드 (Mac 또는 서버)
+### 1. 백엔드 (Windows · Mac · 서버)
+
+Windows (PowerShell):
+
+```powershell
+cd backend
+py -m venv .venv
+.venv\Scripts\Activate.ps1   # 실행 정책 오류 시: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+pip install -r requirements-dev.txt
+copy .env.example .env       # 메모장으로 열어 JARVIS_APP_TOKEN 입력
+pytest
+uvicorn app.main:app --reload --env-file .env --host 0.0.0.0 --port 8000
+```
+
+확인: 브라우저에서 `http://localhost:8000/health`
+
+Mac / Linux:
 
 ```bash
 cd backend
@@ -23,6 +39,9 @@ uvicorn app.main:app --reload --env-file .env --host 0.0.0.0 --port 8000
 확인: `curl http://localhost:8000/health`
 
 ### 2. iOS 앱 (Mac + Xcode 16 이상)
+
+> iOS 앱 빌드는 Apple 정책상 macOS의 Xcode에서만 가능합니다. Windows 사용자는 클라우드 Mac
+> (GitHub Actions macOS 러너, 임대 Mac 등)으로 빌드합니다 — `PROJECT_STATUS.md` 참고.
 
 ```bash
 brew install xcodegen
