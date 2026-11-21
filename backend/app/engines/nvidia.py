@@ -1,4 +1,8 @@
-"""NVIDIA 대화 엔진 — NVIDIA API Catalog의 OpenAI 호환 Chat Completions (스트리밍).
+"""NVIDIA 엔진 — NVIDIA API Catalog의 OpenAI 호환 Chat Completions (스트리밍).
+
+두 가지 모드:
+  - 대화(chat): 빠른 소형 모델, 추론 끔 → 일상 대화·간단한 질문
+  - 에이전트(agent): 대형 추론 모델 → 복잡한 명령·기획·코드·문서
 
 참고: docs.api.nvidia.com/nim/reference — POST {base}/chat/completions, Authorization: Bearer,
 stream=true 이면 `data: {...}` SSE 청크, 마지막은 `data: [DONE]`.
@@ -16,6 +20,12 @@ from ..config import Settings
 from .base import JARVIS_SYSTEM_PROMPT, EngineError, StreamEvent, TextDelta, Usage, http_error
 
 ENGINE_NAME = "NVIDIA"
+
+AGENT_INSTRUCTION = (
+    "\n\n지금은 복잡한 작업(기획·설계·코드·문서 작성)을 맡았습니다. 요청을 분석해 단계별로 구체적인 결과물을 만드세요. "
+    "코드는 실행 가능한 형태로 작성하고, 가정한 내용과 사용자가 확인해야 할 점을 마지막에 짧게 밝히세요. "
+    "최신 정보가 필요한데 확인할 수 없는 내용은 확인이 필요하다고 말하세요."
+)
 
 
 class NvidiaChatEngine:
@@ -36,25 +46,35 @@ class NvidiaChatEngine:
     def model(self) -> str:
         return self.settings.nvidia_model
 
-    def _payload(self, messages: list[dict[str, str]]) -> dict:
+    @property
+    def agent_model(self) -> str:
+        return self.settings.nvidia_agent_model
+
+    def model_for(self, agent: bool) -> str:
+        return self.agent_model if agent else self.model
+
+    def _payload(self, messages: list[dict[str, str]], agent: bool) -> dict:
+        s = self.settings
+        system = JARVIS_SYSTEM_PROMPT + (AGENT_INSTRUCTION if agent else "")
         payload = {
-            "model": self.settings.nvidia_model,
-            "messages": [{"role": "system", "content": JARVIS_SYSTEM_PROMPT}, *messages],
-            "max_tokens": self.settings.nvidia_max_tokens,
+            "model": s.nvidia_agent_model if agent else s.nvidia_model,
+            "messages": [{"role": "system", "content": system}, *messages],
+            "max_tokens": s.nvidia_agent_max_tokens if agent else s.nvidia_max_tokens,
             "stream": True,
         }
-        if self.settings.nvidia_enable_thinking is not None:
-            payload["chat_template_kwargs"] = {"enable_thinking": self.settings.nvidia_enable_thinking}
+        thinking = s.nvidia_agent_enable_thinking if agent else s.nvidia_enable_thinking
+        if thinking is not None:
+            payload["chat_template_kwargs"] = {"enable_thinking": thinking}
         return payload
 
-    async def stream(self, messages: list[dict[str, str]]) -> AsyncIterator[StreamEvent]:
+    async def stream(self, messages: list[dict[str, str]], *, agent: bool = False) -> AsyncIterator[StreamEvent]:
         """응답 텍스트를 조각 단위로 내보낸다. 첫 조각이 나오기 전의 일시적 오류만 재시도한다."""
         url = f"{self.settings.nvidia_base_url}/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.settings.nvidia_api_key}",
             "Accept": "text/event-stream",
         }
-        payload = self._payload(messages)
+        payload = self._payload(messages, agent)
 
         for attempt in range(self.attempts):
             started = False

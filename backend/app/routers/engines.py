@@ -41,7 +41,6 @@ def _note(missing: list[str]) -> str | None:
 def engines(settings: Settings = Depends(get_settings)) -> EnginesResponse:
     nvidia_missing = settings.nvidia_missing()
     google_missing = settings.google_missing()
-    claude_missing = settings.claude_missing()
 
     google_note = _note(google_missing)
     provider = settings.google_search_provider
@@ -56,7 +55,7 @@ def engines(settings: Settings = Depends(get_settings)) -> EnginesResponse:
                 id="nvidia",
                 configured=not nvidia_missing,
                 provider="NVIDIA API Catalog",
-                model=settings.nvidia_model,
+                model=f"{settings.nvidia_model} · 에이전트 {settings.nvidia_agent_model}",
                 note=_note(nvidia_missing),
             ),
             EngineInfo(
@@ -65,13 +64,6 @@ def engines(settings: Settings = Depends(get_settings)) -> EnginesResponse:
                 provider=_GOOGLE_PROVIDER_NAMES.get(provider or "", "미선택"),
                 model=settings.gemini_model if provider == "gemini_grounding" else None,
                 note=google_note,
-            ),
-            EngineInfo(
-                id="claude",
-                configured=not claude_missing,
-                provider="Anthropic Claude API",
-                model=settings.claude_model,
-                note=_note(claude_missing),
             ),
         ]
     )

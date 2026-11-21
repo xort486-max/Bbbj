@@ -12,7 +12,7 @@ data class ConversationMessage(
     val timestampMillis: Long = System.currentTimeMillis(),
     /** 답변 출처 (검색 결과 링크). */
     val sources: List<SourceLink> = emptyList(),
-    /** "google" = Gemini 근거 결과(원문 그대로 표시), "claude_web_search" = Claude 웹 검색 출처 */
+    /** "google" = Gemini 근거 결과 (원문 그대로 표시) */
     val sourceProvider: String? = null,
     /** Google 검색 제안 위젯 HTML (Gemini Grounding 약관상 근거 결과와 함께 표시) */
     val searchSuggestionsHtml: String? = null,

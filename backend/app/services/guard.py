@@ -1,7 +1,7 @@
 """중복 요청 차단 + 응답 캐시.
 
 - 처리 중인 것과 같은 요청(경로·입력·대화 맥락 동일)이 다시 들어오면 즉시 거절한다 (모든 엔진).
-- Claude 응답(agent/research)만 짧은 시간 캐시한다. Google(Gemini) 근거 결과는 약관상 캐시하지 않는다.
+- NVIDIA 에이전트 응답(agent)만 짧은 시간 캐시한다. Google(Gemini) 근거 결과는 약관상 캐시하지 않는다.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Callable
 
-CACHEABLE_ROUTES = {"agent", "research"}
+CACHEABLE_ROUTES = {"agent"}
 
 
 @dataclass(frozen=True)

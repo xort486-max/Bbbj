@@ -29,6 +29,11 @@ ENGINE_NAME = "Google(Gemini)"
 API_REVISION = "2026-05-20"
 MAX_SEARCH_SUGGESTIONS_NOTE = 5  # 약관: 최종 결과와 함께 최대 5개의 검색 제안 표시
 
+RESEARCH_INSTRUCTION = (
+    "다음 요청을 Google 검색으로 최신 근거를 충분히 찾아 조사하고, 출처가 다른 정보를 비교·분석해 "
+    "결론과 핵심 근거를 한국어로 정리하세요."
+)
+
 
 @dataclass(frozen=True)
 class Citation:
@@ -74,7 +79,13 @@ class GeminiSearchEngine:
     def model(self) -> str:
         return self.settings.gemini_model
 
-    async def search(self, query: str) -> GroundedSearchResult:
+    async def search(self, query: str, *, research: bool = False) -> GroundedSearchResult:
+        """웹 검색 근거 답변. research=True면 여러 출처를 비교·분석해 정리하도록 요청한다.
+
+        (요청문에 지시를 덧붙이는 것은 허용되며, 약관상 금지되는 것은 결과를 수정·캐시·타 AI 분석하는 것이다.)
+        """
+        prompt = f"{RESEARCH_INSTRUCTION}\n\n{query}" if research else query
+
         async def call() -> dict:
             try:
                 response = await self.client.post(
@@ -86,7 +97,7 @@ class GeminiSearchEngine:
                     },
                     json={
                         "model": self.settings.gemini_model,
-                        "input": query,
+                        "input": prompt,
                         "tools": [{"type": "google_search"}],
                         # 서버 측 대화 저장 불필요 (단일 검색 요청) — 개인정보 최소화
                         "store": False,

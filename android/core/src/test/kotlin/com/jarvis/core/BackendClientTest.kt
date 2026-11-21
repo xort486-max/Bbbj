@@ -100,7 +100,7 @@ class BackendClientTest {
         val statuses = EngineStatusMapper.statuses(response)
         assertEquals(ConnectionStatus.Configured, statuses[AiEngine.NVIDIA])
         assertEquals(ConnectionStatus.NotConfigured, statuses[AiEngine.GOOGLE])
-        assertEquals(ConnectionStatus.NotConfigured, statuses[AiEngine.CLAUDE], "응답에 없는 엔진은 미설정")
+        assertEquals(setOf(AiEngine.NVIDIA, AiEngine.GOOGLE), statuses.keys, "원격 엔진만 상태를 가진다")
         assertNull(statuses[AiEngine.LOCAL])
     }
 

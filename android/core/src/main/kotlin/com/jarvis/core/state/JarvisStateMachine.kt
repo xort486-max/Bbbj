@@ -5,7 +5,7 @@ import com.jarvis.core.state.JarvisState.Kind
 /**
  * JARVIS 상태 전이를 검증하는 상태 머신 (불변 — 전이마다 새 인스턴스를 반환).
  *
- * 허용되지 않은 전이(예: 대기 중 → Claude 추론 중)를 막아 UI 표시와 실제 처리 흐름이
+ * 허용되지 않은 전이(예: 대기 중 → 심층 추론 중)를 막아 UI 표시와 실제 처리 흐름이
  * 어긋나지 않도록 한다. 모든 상태에서 [JarvisState.Error]와 [JarvisState.Idle](중단)로는 항상 이동할 수 있다.
  */
 data class JarvisStateMachine(
@@ -43,15 +43,15 @@ data class JarvisStateMachine(
             Kind.IDLE to setOf(Kind.LISTENING, Kind.ANALYZING),
             Kind.LISTENING to setOf(Kind.ANALYZING),
             Kind.ANALYZING to setOf(
-                Kind.NVIDIA_RESPONDING, Kind.GOOGLE_SEARCHING, Kind.CLAUDE_REASONING,
+                Kind.NVIDIA_RESPONDING, Kind.GOOGLE_SEARCHING, Kind.REASONING,
                 Kind.EXECUTING_TASK, Kind.COMPLETED,
             ),
             Kind.NVIDIA_RESPONDING to setOf(Kind.COMPLETED),
-            // 검색 결과 분석은 Claude, 간단 요약은 NVIDIA가 담당할 수 있다.
-            Kind.GOOGLE_SEARCHING to setOf(Kind.CLAUDE_REASONING, Kind.NVIDIA_RESPONDING, Kind.COMPLETED),
-            // Claude Tool Use: 추론 → 검색/작업 실행 → 다시 추론 반복.
-            Kind.CLAUDE_REASONING to setOf(Kind.GOOGLE_SEARCHING, Kind.EXECUTING_TASK, Kind.COMPLETED),
-            Kind.EXECUTING_TASK to setOf(Kind.CLAUDE_REASONING, Kind.COMPLETED),
+            // 검색 후 추가 추론·요약으로 이어질 수 있다.
+            Kind.GOOGLE_SEARCHING to setOf(Kind.REASONING, Kind.NVIDIA_RESPONDING, Kind.COMPLETED),
+            // 에이전트 Tool Use(PHASE 5): 추론 → 검색/작업 실행 → 다시 추론 반복.
+            Kind.REASONING to setOf(Kind.GOOGLE_SEARCHING, Kind.EXECUTING_TASK, Kind.COMPLETED),
+            Kind.EXECUTING_TASK to setOf(Kind.REASONING, Kind.COMPLETED),
             Kind.COMPLETED to setOf(Kind.LISTENING, Kind.ANALYZING),
             Kind.ERROR to setOf(Kind.LISTENING, Kind.ANALYZING),
         )

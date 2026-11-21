@@ -44,7 +44,7 @@ object JarvisColors {
         JarvisState.Analyzing -> Color(0xFF66A6FF)
         JarvisState.NvidiaResponding -> Color(0xFF73FFA6)
         JarvisState.GoogleSearching -> Color(0xFF4DBFFF)
-        JarvisState.ClaudeReasoning -> Color(0xFF9E8CFF)
+        JarvisState.Reasoning -> Color(0xFF9E8CFF)
         JarvisState.ExecutingTask -> Blue
         JarvisState.Completed -> Ok
         is JarvisState.Error -> Failure
@@ -64,7 +64,7 @@ object JarvisColors {
         JarvisState.Listening -> 0.8f
         JarvisState.Analyzing, JarvisState.ExecutingTask -> 1.3f
         JarvisState.NvidiaResponding, JarvisState.GoogleSearching -> 1.1f
-        JarvisState.ClaudeReasoning -> 1.6f
+        JarvisState.Reasoning -> 1.6f
     }
 }
 

@@ -2,7 +2,8 @@
 
 음성으로 대화하고, 검색하고, 계획하고, 실제 기능을 실행하는 개인용 AI 비서 (Android · Kotlin · Jetpack Compose).
 
-- 대화: NVIDIA API Catalog · 검색: Google · 추론/에이전트: Claude API
+- 대화·에이전트: NVIDIA API Catalog · 검색·검색 분석: Google (Gemini Grounding)
+- 유료 Claude API는 비용 문제로 사용하지 않습니다 (2026-11-21 결정)
 - API Key는 백엔드에만 저장: `Android 앱 ↔ HTTPS 백엔드 ↔ AI 제공자`
 
 설계: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · 진행 상황: [`PROJECT_STATUS.md`](PROJECT_STATUS.md)
@@ -11,9 +12,9 @@
 
 ## 화면 미리보기
 
-| 대기 | Claude 추론 중 | 검색 답변 + 출처 | 오류 | 설정 |
+| 대기 | 심층 추론 중 | 검색 답변 + 출처 | 오류 | 설정 |
 |---|---|---|---|---|
-| ![](android/app/screenshots/main_idle.png) | ![](android/app/screenshots/main_claude_reasoning.png) | ![](android/app/screenshots/main_search_sources.png) | ![](android/app/screenshots/main_error.png) | ![](android/app/screenshots/settings.png) |
+| ![](android/app/screenshots/main_idle.png) | ![](android/app/screenshots/main_reasoning.png) | ![](android/app/screenshots/main_search_sources.png) | ![](android/app/screenshots/main_error.png) | ![](android/app/screenshots/settings.png) |
 
 ## 요청 처리
 
@@ -21,8 +22,8 @@
 |---|---|---|
 | "안녕 자비스", "블랙홀이 뭐야?" | 대화 | NVIDIA |
 | "오늘 서울 날씨", "최신 AI 뉴스" | 검색 | Google (Gemini Grounding) — 출처·검색 제안 표시 |
-| "전기차 시장 동향 조사해서 분석해줘" | 검색 분석 | Claude + 웹 검색 |
-| "파이썬 자동화 프로젝트 기획해줘" | 에이전트 | Claude |
+| "전기차 시장 동향 조사해서 분석해줘" | 검색 분석 | Google (Gemini Grounding) — 비교·분석 |
+| "파이썬 자동화 프로젝트 기획해줘" | 에이전트 | NVIDIA 대형 추론 모델 (nemotron-3-ultra) |
 | "7시에 알람 맞춰줘" | 기기 기능 | 로컬 (PHASE 4) |
 
 (Robolectric + Roborazzi로 실제 Compose 렌더링 결과를 기록한 이미지)
@@ -51,7 +52,7 @@ uvicorn app.main:app --reload --env-file .env --host 0.0.0.0 --port 8000
 실제 AI API 연결 점검 (키 입력 후, 비용 소량 발생):
 
 ```powershell
-python -m scripts.live_check            # nvidia / google / claude 각각 짧은 요청
+python -m scripts.live_check            # nvidia(대화) / agent(에이전트) / google(검색) 각각 짧은 요청
 ```
 
 ### 2. 앱 실행

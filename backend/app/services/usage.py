@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS usage_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ts TEXT NOT NULL,             -- UTC ISO8601
     day TEXT NOT NULL,            -- 설정 시간대 기준 날짜 (YYYY-MM-DD)
-    engine TEXT NOT NULL,         -- nvidia | google | claude
+    engine TEXT NOT NULL,         -- nvidia | google
     model TEXT NOT NULL,
     route TEXT NOT NULL,          -- chat | search | research | agent
     status TEXT NOT NULL,         -- ok | error | cancelled | cached
@@ -106,7 +106,7 @@ class UsageStore:
                 (day,),
             ).fetchall()
         by_engine = {r[0]: EngineUsage(r[0], r[1], r[2] or 0, r[3] or 0, r[4], r[5], r[6]) for r in rows}
-        return [by_engine.get(e, EngineUsage(e, 0, 0, 0, 0, 0, 0)) for e in ("nvidia", "google", "claude")]
+        return [by_engine.get(e, EngineUsage(e, 0, 0, 0, 0, 0, 0)) for e in ("nvidia", "google")]
 
     def close(self) -> None:
         with self._lock:

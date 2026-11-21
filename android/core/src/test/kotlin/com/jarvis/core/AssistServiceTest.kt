@@ -139,11 +139,11 @@ class AssistServiceTest {
     fun usageEndpointParses() = runTest {
         val body = """{"day":"2026-11-21","timezone":"Asia/Seoul","engines":[
             {"engine":"nvidia","requests":3,"errors":0,"cached":0,"input_tokens":10,"output_tokens":20,"search_queries":0,"daily_limit":0},
-            {"engine":"claude","requests":1,"errors":0,"cached":1,"input_tokens":5,"output_tokens":5,"search_queries":2,"daily_limit":50}]}"""
+            {"engine":"google","requests":1,"errors":0,"cached":0,"input_tokens":5,"output_tokens":5,"search_queries":2,"daily_limit":50}]}"""
         val client = BackendClient(BackendConfiguration("https://x.example"), { HttpResponse(200, body) }, AuthTokenProvider { "t" })
         val usage = client.usage()
         assertEquals(4, usage.totalRequests)
         assertEquals(40, usage.totalTokens)
-        assertEquals(50, usage.of(AiEngine.CLAUDE)!!.dailyLimit)
+        assertEquals(50, usage.of(AiEngine.GOOGLE)!!.dailyLimit)
     }
 }

@@ -10,10 +10,10 @@ enum class Route(val backendId: String?, val title: String) {
     /** 웹 검색 → Google (Gemini Grounding) */
     SEARCH("search", "웹 검색"),
 
-    /** 검색 + 분석 → Claude (웹 검색 도구) */
+    /** 검색 + 분석 → Google (Gemini Grounding, 비교·분석 지시) */
     RESEARCH("research", "검색 분석"),
 
-    /** 복잡한 명령·기획·코드·문서 → Claude */
+    /** 복잡한 명령·기획·코드·문서 → NVIDIA 대형 추론 모델 */
     AGENT("agent", "AI 에이전트 작업"),
 
     /** 기기 기능 (일정·알람·메모 등) → 로컬 명령 엔진 (PHASE 4) */
@@ -25,8 +25,8 @@ data class Classification(val route: Route, val reason: String)
 /**
  * 로컬 명령 분류기 — 규칙 기반, 기기 안에서 즉시 실행되며 비용이 들지 않는다.
  *
- * Claude 호출을 줄이기 위해 "복잡한 작업"으로 분명히 보이는 요청만 AGENT/RESEARCH로 보낸다.
- * 애매하면 비용이 낮은 CHAT(NVIDIA)으로 보낸다.
+ * 대형 모델 호출을 줄이기 위해 "복잡한 작업"으로 분명히 보이는 요청만 AGENT로 보낸다.
+ * 애매하면 가장 빠르고 저렴한 CHAT(NVIDIA 소형 모델)으로 보낸다.
  */
 object CommandClassifier {
     private val wakeWord = Regex("^\\s*(자비스|jarvis)[\\s,.!~]*", RegexOption.IGNORE_CASE)
@@ -65,9 +65,9 @@ object CommandClassifier {
         val wantsAnalysis = analysisCue.containsMatchIn(text)
         val wantsAgent = agentCue.containsMatchIn(text)
 
-        // 2) 검색 + 분석 → Claude 웹 검색
+        // 2) 검색 + 분석 → Gemini 검색 분석
         if (wantsSearch && wantsAnalysis) return Classification(Route.RESEARCH, "검색 + 분석 요청")
-        // 3) 복잡한 작업 / 다단계 / 긴 지시 → Claude
+        // 3) 복잡한 작업 / 다단계 / 긴 지시 → NVIDIA 에이전트 모델
         if (wantsAgent) return Classification(Route.AGENT, "작업·제작 요청")
         if (multiStep.containsMatchIn(text)) return Classification(Route.AGENT, "다단계 명령")
         if (text.length > 160) return Classification(Route.AGENT, "긴 지시문")

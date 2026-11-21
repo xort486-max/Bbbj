@@ -3,11 +3,11 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import DEFAULT_CLAUDE_MODEL, DEFAULT_NVIDIA_BASE_URL, DEFAULT_NVIDIA_MODEL, Settings
+from app.config import DEFAULT_NVIDIA_AGENT_MODEL, DEFAULT_NVIDIA_BASE_URL, DEFAULT_NVIDIA_MODEL, Settings
 from app.main import create_app
 
 TOKEN = "test-app-token"
-SECRET_VALUES = ["nvapi-SECRET", "AIza-SECRET", "sk-ant-SECRET"]
+SECRET_VALUES = ["nvapi-SECRET", "AIza-SECRET"]
 
 
 def client_for(**env: str) -> TestClient:
@@ -24,7 +24,7 @@ def auth(token: str = TOKEN) -> dict[str, str]:
 def test_health_is_public_and_minimal():
     response = client_for().get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "service": "jarvis-backend", "version": "0.2.0"}
+    assert response.json() == {"status": "ok", "service": "jarvis-backend", "version": "0.3.0"}
 
 
 # --- 인증 -------------------------------------------------------------------
@@ -52,12 +52,12 @@ def test_engines_report_missing_configuration():
     response = client_for(JARVIS_APP_TOKEN=TOKEN).get("/v1/engines", headers=auth())
     assert response.status_code == 200
     engines = {e["id"]: e for e in response.json()["engines"]}
-    assert set(engines) == {"nvidia", "google", "claude"}
+    assert set(engines) == {"nvidia", "google"}
     assert all(not e["configured"] for e in engines.values())
     assert "NVIDIA_API_KEY" in engines["nvidia"]["note"]
-    assert engines["nvidia"]["model"] == DEFAULT_NVIDIA_MODEL
+    assert engines["nvidia"]["model"].startswith(DEFAULT_NVIDIA_MODEL)
     assert "GOOGLE_SEARCH_PROVIDER" in engines["google"]["note"]
-    assert engines["claude"]["model"] == DEFAULT_CLAUDE_MODEL
+    assert DEFAULT_NVIDIA_AGENT_MODEL in engines["nvidia"]["model"]
 
 
 def test_engines_configured_and_never_leak_secrets():
@@ -67,12 +67,11 @@ def test_engines_configured_and_never_leak_secrets():
         NVIDIA_MODEL="vendor/some-chat-model",
         GOOGLE_SEARCH_PROVIDER="gemini_grounding",
         GOOGLE_API_KEY=SECRET_VALUES[1],
-        ANTHROPIC_API_KEY=SECRET_VALUES[2],
     ).get("/v1/engines", headers=auth())
     assert response.status_code == 200
     engines = {e["id"]: e for e in response.json()["engines"]}
     assert all(e["configured"] for e in engines.values())
-    assert engines["nvidia"]["model"] == "vendor/some-chat-model"
+    assert engines["nvidia"]["model"].startswith("vendor/some-chat-model")
     assert engines["google"]["provider"] == "Gemini API · Grounding with Google Search"
 
     body = response.text
@@ -106,13 +105,13 @@ def test_unknown_google_provider_is_not_configured():
 
 
 def test_settings_defaults_and_trimming():
-    settings = Settings.from_env({"NVIDIA_MODEL": "  m  ", "NVIDIA_API_KEY": "   ", "CLAUDE_MODEL": "", "CLAUDE_EFFORT": "bogus"})
+    settings = Settings.from_env({"NVIDIA_MODEL": "  m  ", "NVIDIA_API_KEY": "   ", "NVIDIA_AGENT_MODEL": "", "NVIDIA_AGENT_ENABLE_THINKING": "bogus"})
     assert settings.nvidia_model == "m"
-    assert settings.claude_effort == "medium"
+    assert settings.nvidia_agent_enable_thinking is None
     assert Settings.from_env({}).nvidia_model == DEFAULT_NVIDIA_MODEL
     assert settings.nvidia_api_key is None
     assert settings.nvidia_base_url == DEFAULT_NVIDIA_BASE_URL
-    assert settings.claude_model == DEFAULT_CLAUDE_MODEL
+    assert settings.nvidia_agent_model == DEFAULT_NVIDIA_AGENT_MODEL
 
 
 def test_settings_repr_hides_secrets():

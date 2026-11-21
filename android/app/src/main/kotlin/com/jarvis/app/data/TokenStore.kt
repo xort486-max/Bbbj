@@ -15,7 +15,7 @@ import javax.crypto.spec.GCMParameterSpec
 /**
  * 백엔드 앱 인증 토큰 저장소.
  *
- * AI 제공자(NVIDIA/Google/Claude) API Key는 앱에 저장하지 않는다. 여기 저장되는 것은
+ * AI 제공자(NVIDIA/Google) API Key는 앱에 저장하지 않는다. 여기 저장되는 것은
  * JARVIS 백엔드의 JARVIS_APP_TOKEN 값뿐이다.
  */
 interface TokenStore : AuthTokenProvider {

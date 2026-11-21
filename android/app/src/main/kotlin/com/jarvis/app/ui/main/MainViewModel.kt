@@ -219,7 +219,7 @@ class MainViewModel(
                 assistServiceFactory(configuration).assist(classification.route, text, history).collect { event ->
                     when (event) {
                         is AssistEvent.RouteInfo -> {
-                            move(stateFor(event.engine))
+                            move(stateFor(event.engine, classification.route))
                             updateTask { it.copy(engine = event.engine, detail = "${event.engine.displayName} · ${event.model}") }
                         }
                         is AssistEvent.Notice -> appendSystem(event.text)
@@ -364,10 +364,10 @@ class MainViewModel(
         return message.id
     }
 
-    private fun stateFor(engine: AiEngine): JarvisState = when (engine) {
-        AiEngine.NVIDIA -> JarvisState.NvidiaResponding
+    /** 엔진·경로에 맞는 화면 상태. 에이전트(및 검색 분석 대체)는 NVIDIA 대형 모델의 "심층 추론 중". */
+    private fun stateFor(engine: AiEngine, route: Route): JarvisState = when (engine) {
+        AiEngine.NVIDIA -> if (route == Route.AGENT || route == Route.RESEARCH) JarvisState.Reasoning else JarvisState.NvidiaResponding
         AiEngine.GOOGLE -> JarvisState.GoogleSearching
-        AiEngine.CLAUDE -> JarvisState.ClaudeReasoning
         AiEngine.LOCAL -> JarvisState.ExecutingTask
     }
 

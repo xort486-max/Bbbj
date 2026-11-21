@@ -31,7 +31,7 @@ class SourceLink:
 
 @dataclass(frozen=True)
 class Sources:
-    provider: Literal["google", "claude_web_search"]
+    provider: Literal["google"]
     items: list[SourceLink]
     queries: list[str] = field(default_factory=list)
     # Google 검색 제안 위젯 HTML. Gemini Grounding 약관상 근거 결과와 함께 원본 그대로 표시해야 한다.

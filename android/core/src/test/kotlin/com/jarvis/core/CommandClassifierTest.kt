@@ -35,7 +35,7 @@ class CommandClassifierTest {
     )
 
     @Test
-    fun searchPlusAnalysisGoesToClaudeResearch() = assertRoute(
+    fun searchPlusAnalysisGoesToResearch() = assertRoute(
         Route.RESEARCH,
         "최신 전기차 시장 동향을 조사해서 분석해줘",
         "요즘 나온 스마트폰 3개 가격 비교해줘",
@@ -43,7 +43,7 @@ class CommandClassifierTest {
     )
 
     @Test
-    fun complexWorkGoesToClaudeAgent() = assertRoute(
+    fun complexWorkGoesToAgent() = assertRoute(
         Route.AGENT,
         "자비스, 새로운 프로젝트를 만들어.",
         "파이썬으로 자동화 프로그램을 제작해",

@@ -1,4 +1,4 @@
-"""테스트용 가짜 업스트림(NVIDIA / Gemini / Anthropic) 구성."""
+"""테스트용 가짜 업스트림(NVIDIA / Gemini) 구성."""
 
 from __future__ import annotations
 
@@ -6,11 +6,9 @@ import json
 from dataclasses import dataclass, field
 from typing import Callable
 
-import anthropic
 import httpx2
 
 from app.config import Settings
-from app.engines.claude import ClaudeEngine
 from app.engines.gemini_search import GeminiSearchEngine
 from app.engines.nvidia import NvidiaChatEngine
 from app.services.container import Services
@@ -24,7 +22,6 @@ BASE_ENV = {
     "NVIDIA_API_KEY": "nvapi-test",
     "GOOGLE_SEARCH_PROVIDER": "gemini_grounding",
     "GOOGLE_API_KEY": "gemini-test",
-    "ANTHROPIC_API_KEY": "sk-ant-test",
     "JARVIS_USAGE_DB": ":memory:",
 }
 
@@ -58,21 +55,12 @@ def build_services(upstream: Upstream, env_overrides: dict[str, str] | None = No
     settings = Settings.from_env(env)
     transport = httpx2.MockTransport(upstream)
     http = httpx2.AsyncClient(transport=transport)
-    claude = None
-    if settings.claude_ready:
-        client = anthropic.AsyncAnthropic(
-            api_key=settings.anthropic_api_key,
-            max_retries=0,
-            http_client=anthropic.DefaultAsyncHttpxClient(transport=transport),
-        )
-        claude = ClaudeEngine(settings, client)
     return Services(
         settings=settings,
         usage=UsageStore(":memory:", settings.timezone),
         guard=RequestGuard(settings.response_cache_ttl_seconds),
         nvidia=NvidiaChatEngine(settings, http, sleep=_no_sleep) if settings.nvidia_ready else None,
         gemini=GeminiSearchEngine(settings, http, sleep=_no_sleep) if settings.google_ready else None,
-        claude=claude,
         http=http,
     )
 
@@ -135,42 +123,6 @@ GEMINI_INTERACTION = {
     ],
     "usage": {"total_tokens": 300, "total_input_tokens": 20, "total_output_tokens": 60},
 }
-
-
-def claude_message_stream(blocks: list[dict], *, stop_reason: str = "end_turn", input_tokens: int = 12,
-                          output_tokens: int = 34, web_search_requests: int = 0) -> str:
-    """Anthropic Messages SSE 스트림 텍스트. blocks: text / server_tool_use / web_search_tool_result."""
-    events: list[tuple[str | None, object]] = [("message_start", {
-        "type": "message_start",
-        "message": {"id": "msg_test", "type": "message", "role": "assistant", "model": "claude-opus-5-5",
-                    "content": [], "stop_reason": None, "stop_sequence": None,
-                    "usage": {"input_tokens": input_tokens, "output_tokens": 1}},
-    })]
-    for index, block in enumerate(blocks):
-        if block["type"] == "text":
-            events.append(("content_block_start", {"type": "content_block_start", "index": index,
-                                                   "content_block": {"type": "text", "text": ""}}))
-            for piece in block["pieces"]:
-                events.append(("content_block_delta", {"type": "content_block_delta", "index": index,
-                                                       "delta": {"type": "text_delta", "text": piece}}))
-        elif block["type"] == "server_tool_use":
-            events.append(("content_block_start", {"type": "content_block_start", "index": index,
-                                                   "content_block": {"type": "server_tool_use", "id": block["id"],
-                                                                     "name": "web_search", "input": {}}}))
-            events.append(("content_block_delta", {"type": "content_block_delta", "index": index,
-                                                   "delta": {"type": "input_json_delta",
-                                                             "partial_json": json.dumps({"query": block["query"]})}}))
-        else:
-            events.append(("content_block_start", {"type": "content_block_start", "index": index,
-                                                   "content_block": block}))
-        events.append(("content_block_stop", {"type": "content_block_stop", "index": index}))
-    usage: dict = {"output_tokens": output_tokens}
-    if web_search_requests:
-        usage["server_tool_use"] = {"web_search_requests": web_search_requests}
-    events.append(("message_delta", {"type": "message_delta",
-                                     "delta": {"stop_reason": stop_reason, "stop_sequence": None}, "usage": usage}))
-    events.append(("message_stop", {"type": "message_stop"}))
-    return sse_body(events)
 
 
 def respond_sse(body: str) -> Callable[[httpx2.Request], httpx2.Response]:

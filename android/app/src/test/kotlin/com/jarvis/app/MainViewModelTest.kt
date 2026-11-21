@@ -130,8 +130,8 @@ class MainViewModelTest {
     @Test
     fun agentFailureShowsErrorState() = runTest(dispatcher) {
         val assist = FakeAssistService(
-            AssistEvent.RouteInfo(AiEngine.CLAUDE, "claude-opus-5-5"),
-            AssistEvent.Failure("Claude API 요청 한도를 초과했습니다.", "rate_limited", true),
+            AssistEvent.RouteInfo(AiEngine.NVIDIA, "nvidia/nemotron-3-ultra-550b-a55b"),
+            AssistEvent.Failure("NVIDIA API 요청 한도를 초과했습니다.", "rate_limited", true),
         )
         val vm = model(url = "https://jarvis.example.com", assist = assist)
         runCurrent()
@@ -140,7 +140,7 @@ class MainViewModelTest {
         assertEquals(Route.AGENT, assist.calls.single().first)
         val ui = vm.ui.value
         assertIs<JarvisState.Error>(ui.state)
-        assertEquals("Claude API 요청 한도를 초과했습니다.", ui.log.last?.text)
+        assertEquals("NVIDIA API 요청 한도를 초과했습니다.", ui.log.last?.text)
         assertEquals(JarvisTask.Status.FAILED, ui.tasks.finishedTasks.last().status)
     }
 
@@ -148,15 +148,16 @@ class MainViewModelTest {
     fun fallbackNoticeIsShownAndBackendErrorsAreReported() = runTest(dispatcher) {
         val assist = FakeAssistService(
             AssistEvent.RouteInfo(AiEngine.NVIDIA, "m"),
-            AssistEvent.Notice("Claude를 사용할 수 없어 NVIDIA(으)로 대신 처리합니다."),
+            AssistEvent.Notice("Google 검색을 사용할 수 없어 검색 없이 NVIDIA가 답합니다."),
             AssistEvent.Delta("대체 응답"),
             AssistEvent.Done(AiEngine.NVIDIA, "m", false, 0, 0, 0),
         )
         val vm = model(url = "https://jarvis.example.com", assist = assist)
         runCurrent()
-        vm.submit("보고서 작성해줘")
+        vm.submit("요즘 전기차 시장 조사해서 분석해줘")
         runCurrent()
-        assertTrue(vm.ui.value.log.messages.any { it.role == ConversationMessage.Role.SYSTEM && it.text.contains("대신 처리") })
+        assertTrue(vm.ui.value.log.messages.any { it.role == ConversationMessage.Role.SYSTEM && it.text.contains("검색 없이") })
+        assertTrue(JarvisState.Reasoning in vm.ui.value.machine.history.map { it.to }, "검색 분석 대체 → 심층 추론 표시")
 
         val failing = model(url = "https://jarvis.example.com", assist = FakeAssistService(throwOnStart = BackendException.Http(503, "NVIDIA 엔진을 사용할 수 없습니다")))
         runCurrent()
@@ -168,12 +169,12 @@ class MainViewModelTest {
 
     @Test
     fun cancelStopsStreaming() = runTest(dispatcher) {
-        val assist = FakeAssistService(AssistEvent.RouteInfo(AiEngine.CLAUDE, "c"), AssistEvent.Delta("일부"), hang = true)
+        val assist = FakeAssistService(AssistEvent.RouteInfo(AiEngine.NVIDIA, "agent"), AssistEvent.Delta("일부"), hang = true)
         val vm = model(url = "https://jarvis.example.com", assist = assist)
         runCurrent()
         vm.submit("프로젝트 기획해줘")
         runCurrent()
-        assertEquals(JarvisState.ClaudeReasoning, vm.ui.value.state)
+        assertEquals(JarvisState.Reasoning, vm.ui.value.state)
         vm.cancelCurrent()
         runCurrent()
         assertEquals(JarvisState.Idle, vm.ui.value.state)
@@ -215,7 +216,7 @@ class MainViewModelTest {
             url = "https://jarvis.example.com",
             routes = mapOf(
                 "/health" to healthOk,
-                "/v1/engines" to (200 to """{"engines":[{"id":"nvidia","configured":true,"provider":"NVIDIA","model":"m"},{"id":"claude","configured":false,"provider":"Anthropic","model":"claude-opus-5-5"}]}"""),
+                "/v1/engines" to (200 to """{"engines":[{"id":"nvidia","configured":true,"provider":"NVIDIA","model":"m"}]}"""),
             ),
         )
         vm.refreshEngineStatus()
@@ -223,7 +224,6 @@ class MainViewModelTest {
         val ui = vm.ui.value
         assertEquals(ConnectionStatus.Connected, ui.backend)
         assertEquals(ConnectionStatus.Configured, ui.engines[AiEngine.NVIDIA])
-        assertEquals(ConnectionStatus.NotConfigured, ui.engines[AiEngine.CLAUDE])
         assertEquals(ConnectionStatus.NotConfigured, ui.engines[AiEngine.GOOGLE])
         assertEquals(JarvisTask.Status.SUCCEEDED, ui.tasks.finishedTasks.last().status)
     }
@@ -272,7 +272,7 @@ class MainViewModelTest {
     @Test
     fun cancelReturnsToIdle() = runTest(dispatcher) {
         val vm = model()
-        vm.debugForceState(JarvisState.ClaudeReasoning)
+        vm.debugForceState(JarvisState.Reasoning)
         vm.cancelCurrent()
         assertEquals(JarvisState.Idle, vm.ui.value.state)
     }

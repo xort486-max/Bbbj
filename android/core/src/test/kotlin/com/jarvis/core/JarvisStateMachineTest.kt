@@ -38,11 +38,11 @@ class JarvisStateMachineTest {
     fun agentToolLoopFlow() {
         val machine = JarvisStateMachine()
             .transition(JarvisState.Analyzing)
-            .transition(JarvisState.ClaudeReasoning)
+            .transition(JarvisState.Reasoning)
             .transition(JarvisState.GoogleSearching)
-            .transition(JarvisState.ClaudeReasoning)
+            .transition(JarvisState.Reasoning)
             .transition(JarvisState.ExecutingTask)
-            .transition(JarvisState.ClaudeReasoning)
+            .transition(JarvisState.Reasoning)
             .transition(JarvisState.Completed)
         assertEquals(JarvisState.Completed, machine.state)
     }
@@ -51,10 +51,10 @@ class JarvisStateMachineTest {
     fun rejectsSkippingAnalysis() {
         val machine = JarvisStateMachine()
         val error = assertFailsWith<JarvisStateMachine.TransitionNotAllowed> {
-            machine.transition(JarvisState.ClaudeReasoning)
+            machine.transition(JarvisState.Reasoning)
         }
         assertEquals(JarvisState.Kind.IDLE, error.from)
-        assertEquals(JarvisState.Kind.CLAUDE_REASONING, error.to)
+        assertEquals(JarvisState.Kind.REASONING, error.to)
         assertEquals(JarvisState.Idle, machine.state, "거부된 전이는 상태를 바꾸지 않아야 한다")
     }
 
@@ -85,7 +85,7 @@ class JarvisStateMachineTest {
     fun resetCancelsBusyState() {
         val machine = JarvisStateMachine()
             .transition(JarvisState.Analyzing)
-            .transition(JarvisState.ClaudeReasoning)
+            .transition(JarvisState.Reasoning)
             .reset()
         assertEquals(JarvisState.Idle, machine.state)
         assertEquals(3, machine.reset().history.size, "이미 대기 중이면 reset은 기록을 남기지 않는다")
@@ -106,13 +106,13 @@ class JarvisStateMachineTest {
         assertEquals(
             listOf(
                 "대기 중", "음성 인식 중", "사용자 명령 분석 중", "NVIDIA 응답 중", "Google 검색 중",
-                "Claude 추론 중", "작업 실행 중", "작업 완료", "오류 발생",
+                "심층 추론 중", "작업 실행 중", "작업 완료", "오류 발생",
             ),
             names,
         )
         assertEquals(AiEngine.NVIDIA, JarvisState.NvidiaResponding.activeEngine)
         assertEquals(AiEngine.GOOGLE, JarvisState.GoogleSearching.activeEngine)
-        assertEquals(AiEngine.CLAUDE, JarvisState.ClaudeReasoning.activeEngine)
+        assertEquals(AiEngine.NVIDIA, JarvisState.Reasoning.activeEngine)
         assertNull(JarvisState.Idle.activeEngine)
         assertEquals(9, JarvisState.Kind.entries.size)
     }

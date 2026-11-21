@@ -61,7 +61,7 @@ fun interface SseTransport {
 }
 
 /**
- * OkHttp 기반 SSE 전송. Claude 추론처럼 이벤트 사이 간격이 긴 응답을 위해 읽기 제한을 넉넉히 둔다.
+ * OkHttp 기반 SSE 전송. 대형 모델 추론처럼 이벤트 사이 간격이 긴 응답을 위해 읽기 제한을 넉넉히 둔다.
  * 수집(collect)을 취소하면 HTTP 연결도 즉시 끊는다 → 백엔드도 처리를 중단한다.
  */
 class OkHttpSseTransport(

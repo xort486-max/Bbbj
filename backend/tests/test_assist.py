@@ -13,15 +13,12 @@ from tests.helpers import (
     TOKEN,
     Upstream,
     build_services,
-    claude_message_stream,
     nvidia_stream,
     parse_sse,
-    respond_sse,
 )
 
 NVIDIA = "integrate.api.nvidia.com"
 GEMINI = "generativelanguage.googleapis.com"
-ANTHROPIC = "api.anthropic.com"
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
 
 
@@ -63,6 +60,7 @@ def test_chat_streams_nvidia_response_with_history():
     assert sent.headers["authorization"] == "Bearer nvapi-test"
     body = json.loads(sent.content)
     assert body["stream"] is True and body["model"] == "nvidia/nemotron-3.5-lightning-30b-a3b"
+    assert "복잡한 작업" not in body["messages"][0]["content"]  # 대화 모드에는 에이전트 지시 없음
     assert body["chat_template_kwargs"] == {"enable_thinking": False}
     assert [m["role"] for m in body["messages"]] == ["system", "user", "assistant", "user"]
     assert body["messages"][-1]["content"] == "안녕 자비스"
@@ -152,105 +150,66 @@ def test_search_empty_result_is_error():
     assert error["code"] == "empty"
 
 
-# --- Claude (agent / research) ------------------------------------------------
+# --- 에이전트 (NVIDIA 대형 모델) · 검색 분석 (Gemini) ---------------------------------
 
 
-def test_agent_streams_claude_with_fallback_opt_in_and_caches():
-    body = claude_message_stream([{"type": "text", "pieces": ["프로젝트 ", "계획입니다."]}])
-    upstream = Upstream({ANTHROPIC: respond_sse(body)})
+def test_agent_uses_nvidia_agent_model_with_reasoning_and_caches():
+    upstream = Upstream({NVIDIA: nvidia_stream("1단계: ", "API 키 발급")})
     client, services = make(upstream)
 
     events = parse_sse(assist(client, "agent", "파이썬 자동화 프로젝트 기획해줘").text)
-    assert dict(events)["route"]["engine"] == "claude"
-    assert ("stage", {"stage": "reasoning", "detail": None}) in events
-    assert text_of(events) == "프로젝트 계획입니다."
-    done = dict(events)["done"]
-    assert (done["input_tokens"], done["output_tokens"], done["cached"]) == (12, 34, False)
+    route = dict(events)["route"]
+    assert (route["engine"], route["model"]) == ("nvidia", "nvidia/nemotron-3-ultra-550b-a55b")
+    assert ("stage", {"stage": "reasoning"}) in events
+    assert text_of(events) == "1단계: API 키 발급"
 
-    sent = upstream.calls(ANTHROPIC)[0]
-    assert "server-side-fallback-2026-07-01" in sent.headers["anthropic-beta"]
-    request_body = json.loads(sent.content)
-    assert request_body["model"] == "claude-opus-5-5"
-    assert request_body["fallbacks"] == "default"
-    assert request_body["output_config"] == {"effort": "medium"}
-    assert request_body["stream"] is True
-    assert "tools" not in request_body
+    body = json.loads(upstream.calls(NVIDIA)[0].content)
+    assert body["model"] == "nvidia/nemotron-3-ultra-550b-a55b"
+    assert body["max_tokens"] == 8192
+    assert "chat_template_kwargs" not in body  # 에이전트 모델은 기본 추론 모드 사용
+    assert "복잡한 작업" in body["messages"][0]["content"]
 
-    # 같은 요청 반복 → 캐시 응답 (Claude 재호출 없음)
+    # 같은 요청 반복 → 캐시 응답 (재호출 없음)
     again = parse_sse(assist(client, "agent", "파이썬 자동화 프로젝트 기획해줘").text)
-    assert text_of(again) == "프로젝트 계획입니다." and dict(again)["done"]["cached"] is True
-    assert len(upstream.calls(ANTHROPIC)) == 1
-    claude_usage = services.usage.summary()[2]
-    assert (claude_usage.requests, claude_usage.cached) == (2, 1)
+    assert text_of(again) == "1단계: API 키 발급" and dict(again)["done"]["cached"] is True
+    assert len(upstream.calls(NVIDIA)) == 1
+    nvidia_usage = services.usage.summary()[0]
+    assert (nvidia_usage.requests, nvidia_usage.cached) == (2, 1)
 
 
-def test_research_uses_claude_web_search_and_reports_sources():
-    body = claude_message_stream(
-        [
-            {"type": "server_tool_use", "id": "srvtoolu_1", "query": "2026 전기차 판매량"},
-            {"type": "web_search_tool_result", "tool_use_id": "srvtoolu_1", "content": [
-                {"type": "web_search_result", "url": "https://news.example.com/ev", "title": "EV 판매 동향",
-                 "encrypted_content": "enc", "page_age": None},
-            ]},
-            {"type": "text", "pieces": ["분석 결과: 증가 추세입니다."]},
-        ],
-        web_search_requests=1,
-    )
-    upstream = Upstream({ANTHROPIC: respond_sse(body)})
-    client, _ = make(upstream)
-    events = parse_sse(assist(client, "research", "올해 전기차 판매량 분석해줘").text)
-
-    stages = [d["stage"] for n, d in events if n == "stage"]
-    assert stages == ["reasoning", "searching", "responding"]
-    sources = dict(events)["sources"]
-    assert sources["provider"] == "claude_web_search"
-    assert sources["items"] == [{"title": "EV 판매 동향", "url": "https://news.example.com/ev"}]
-    assert dict(events)["done"]["search_queries"] == 1
-    tools = json.loads(upstream.calls(ANTHROPIC)[0].content)["tools"]
-    assert tools == [{"type": "web_search_20260209", "name": "web_search", "max_uses": 5}]
-
-
-def test_claude_refusal_becomes_error_and_is_not_cached():
-    upstream = Upstream({ANTHROPIC: respond_sse(claude_message_stream([], stop_reason="refusal"))})
+def test_research_uses_gemini_with_analysis_instruction_and_no_cache():
+    upstream = Upstream({GEMINI: lambda r: httpx2.Response(200, json=GEMINI_INTERACTION)})
     client, _ = make(upstream)
     for _ in range(2):
-        error = dict(parse_sse(assist(client, "agent", "거절될 요청").text))["error"]
-        assert error["code"] == "refusal"
-    assert len(upstream.calls(ANTHROPIC)) == 2
-
-
-def test_claude_pause_turn_is_continued():
-    bodies = [
-        claude_message_stream([{"type": "text", "pieces": ["1부 "]}], stop_reason="pause_turn"),
-        claude_message_stream([{"type": "text", "pieces": ["2부"]}]),
-    ]
-    upstream = Upstream({ANTHROPIC: lambda r: respond_sse(bodies[len(upstream.calls(ANTHROPIC)) - 1])(r)})
-    client, _ = make(upstream)
-    events = parse_sse(assist(client, "research", "긴 조사").text)
-    assert text_of(events) == "1부 2부"
-    second = json.loads(upstream.calls(ANTHROPIC)[1].content)
-    assert second["messages"][-1]["role"] == "assistant"  # 이어받기: 이전 assistant 내용을 다시 보냄
-    assert dict(events)["done"]["input_tokens"] == 24
+        events = parse_sse(assist(client, "research", "전기차 시장 동향 분석해줘").text)
+        assert dict(events)["route"]["engine"] == "google"
+        assert dict(events)["sources"]["provider"] == "google"
+    sent = json.loads(upstream.calls(GEMINI)[0].content)
+    assert sent["input"].endswith("전기차 시장 동향 분석해줘")
+    assert "비교·분석" in sent["input"]
+    assert len(upstream.calls(GEMINI)) == 2  # 근거 결과는 캐시하지 않음
 
 
 # --- 라우팅 · 대체 처리 · 한도 · 중복 차단 ----------------------------------------
 
 
-def test_research_falls_back_to_google_when_claude_missing():
-    upstream = Upstream({GEMINI: lambda r: httpx2.Response(200, json=GEMINI_INTERACTION)})
-    client, _ = make(upstream, drop=("ANTHROPIC_API_KEY",))
+def test_research_falls_back_to_nvidia_agent_when_google_missing():
+    upstream = Upstream({NVIDIA: nvidia_stream("검색 없는 답변")})
+    client, _ = make(upstream, drop=("GOOGLE_API_KEY",))
     events = parse_sse(assist(client, "research", "분석해줘").text)
-    assert dict(events)["route"]["engine"] == "google"
-    assert "ANTHROPIC_API_KEY" in dict(events)["notice"]["text"]
-
-
-def test_agent_falls_back_to_nvidia_when_claude_limit_reached():
-    upstream = Upstream({NVIDIA: nvidia_stream("NVIDIA 대체 응답")})
-    client, services = make(upstream, env_overrides={"DAILY_LIMIT_CLAUDE": "1"})
-    services.usage.record(engine="claude", model="m", route="agent", status="ok")
-    events = parse_sse(assist(client, "agent", "기획해줘").text)
     assert dict(events)["route"]["engine"] == "nvidia"
+    notice = dict(events)["notice"]["text"]
+    assert "GOOGLE_API_KEY" in notice and "최신 정보가 아닐 수" in notice
+    assert json.loads(upstream.calls(NVIDIA)[0].content)["model"] == "nvidia/nemotron-3-ultra-550b-a55b"
+
+
+def test_research_falls_back_when_google_limit_reached_but_search_does_not():
+    upstream = Upstream({NVIDIA: nvidia_stream("대체")})
+    client, services = make(upstream, env_overrides={"DAILY_LIMIT_GOOGLE": "1"})
+    services.usage.record(engine="google", model="m", route="search", status="ok")
+    events = parse_sse(assist(client, "research", "분석해줘").text)
     assert "일일 한도 1회 초과" in dict(events)["notice"]["text"]
+    assert assist(client, "search", "검색").status_code == 429
 
 
 def test_unavailable_engine_returns_clear_http_error():
@@ -259,10 +218,9 @@ def test_unavailable_engine_returns_clear_http_error():
     assert response.status_code == 503
     assert "NVIDIA_API_KEY" in response.json()["detail"]
 
-    client, services = make(Upstream(), env_overrides={"DAILY_LIMIT_GOOGLE": "1"})
-    services.usage.record(engine="google", model="m", route="search", status="ok")
+    client, _ = make(Upstream(), drop=("GOOGLE_API_KEY",))
     response = assist(client, "search", "검색")
-    assert response.status_code == 429
+    assert response.status_code == 503 and "GOOGLE_API_KEY" in response.json()["detail"]
 
 
 def test_duplicate_in_flight_request_is_rejected():
@@ -285,12 +243,12 @@ def test_assist_requires_token_and_validates_body():
 def test_usage_endpoint_summarises_today():
     client, services = make(Upstream())
     services.usage.record(engine="nvidia", model="m", route="chat", status="ok", input_tokens=10, output_tokens=5)
-    services.usage.record(engine="claude", model="m", route="agent", status="error", error_code="auth")
+    services.usage.record(engine="google", model="m", route="search", status="error", error_code="auth")
     data = client.get("/v1/usage", headers=AUTH).json()
     engines = {e["engine"]: e for e in data["engines"]}
+    assert set(engines) == {"nvidia", "google"}
     assert engines["nvidia"]["requests"] == 1 and engines["nvidia"]["output_tokens"] == 5
-    assert engines["claude"]["errors"] == 1
-    assert engines["google"]["requests"] == 0
+    assert engines["google"]["errors"] == 1
     assert data["timezone"] == "Asia/Seoul"
 
 
@@ -314,7 +272,6 @@ def test_usage_is_recorded_without_content(route):
     handlers = {
         NVIDIA: nvidia_stream("비밀 답변"),
         GEMINI: lambda r: httpx2.Response(200, json=GEMINI_INTERACTION),
-        ANTHROPIC: respond_sse(claude_message_stream([{"type": "text", "pieces": ["비밀 답변"]}])),
     }
     client, services = make(Upstream(handlers))
     assist(client, route, "개인적인 질문 내용")

@@ -85,8 +85,8 @@ class FeatureAndStatusTest {
 
     @Test
     fun engineRoles() {
-        assertEquals(listOf(AiEngine.NVIDIA, AiEngine.GOOGLE, AiEngine.CLAUDE), AiEngine.remoteEngines)
-        assertEquals("AI 두뇌 · 에이전트", AiEngine.CLAUDE.roleDescription)
+        assertEquals(listOf(AiEngine.NVIDIA, AiEngine.GOOGLE), AiEngine.remoteEngines)
+        assertEquals("검색 · 분석", AiEngine.GOOGLE.roleDescription)
         assertEquals(AiEngine.GOOGLE, AiEngine.fromId("google"))
     }
 

@@ -115,7 +115,7 @@ fun SettingsScreen(ui: MainUiState, savedUrl: String, versionName: String, actio
                 Text("주소 저장")
             }
             Hint(
-                "AI API Key는 앱에 저장하지 않습니다. 앱은 이 서버를 통해서만 NVIDIA · Google · Claude에 접근합니다.\n" +
+                "AI API Key는 앱에 저장하지 않습니다. 앱은 이 서버를 통해서만 NVIDIA · Google에 접근합니다.\n" +
                     "에뮬레이터 → PC: http://10.0.2.2:8000 / 실기기 → 같은 Wi-Fi의 PC: http://<PC IP>:8000 (디버그 빌드만 HTTP 허용)",
             )
         }

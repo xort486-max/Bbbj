@@ -3,7 +3,7 @@
 설정된 엔진마다 아주 짧은 요청을 한 번씩 보내 실제 응답이 오는지 확인한다. 비용이 조금 발생한다.
 
     python -m scripts.live_check            # .env 또는 환경변수의 키 사용
-    python -m scripts.live_check nvidia     # 특정 엔진만
+    python -m scripts.live_check agent      # 특정 점검만 (nvidia / agent / google)
 
 결과 본문은 앞부분만 출력하고, API Key는 출력하지 않는다.
 """
@@ -17,7 +17,7 @@ import time
 from dotenv import load_dotenv
 
 from app.config import Settings
-from app.engines.base import Sources, TextDelta, Usage, build_messages
+from app.engines.base import TextDelta, Usage, build_messages
 from app.services.container import Services
 
 
@@ -42,21 +42,17 @@ async def check_google(services: Services) -> None:
     print(f"  검색 제안 HTML: {'있음' if result.search_suggestions_html else '없음'} · 토큰 {result.input_tokens}/{result.output_tokens}")
 
 
-async def check_claude(services: Services) -> None:
-    started, parts, usage, sources = time.monotonic(), [], None, []
-    async for event in services.claude.stream(build_messages([], "JARVIS라고 한 단어로만 답해."), web_search=False):
+async def check_agent(services: Services) -> None:
+    started, parts = time.monotonic(), []
+    prompt = "파이썬으로 매일 아침 날씨를 메일로 보내는 프로그램을 만들려고 해. 단계별 계획을 3줄로 짜줘."
+    async for event in services.nvidia.stream(build_messages([], prompt), agent=True):
         if isinstance(event, TextDelta):
             parts.append(event.text)
-        elif isinstance(event, Usage):
-            usage = event
-        elif isinstance(event, Sources):
-            sources.extend(event.items)
-    print(f"  모델: {services.claude.model}")
-    print(f"  응답({time.monotonic() - started:.1f}s): {''.join(parts)[:120]!r}")
-    print(f"  사용량: {usage}")
+    print(f"  모델: {services.nvidia.agent_model}")
+    print(f"  응답({time.monotonic() - started:.1f}s): {''.join(parts)[:160]!r}")
 
 
-CHECKS = {"nvidia": ("nvidia", check_nvidia), "google": ("gemini", check_google), "claude": ("claude", check_claude)}
+CHECKS = {"nvidia": ("nvidia", check_nvidia), "agent": ("nvidia", check_agent), "google": ("gemini", check_google)}
 
 
 async def main(selected: list[str]) -> int:

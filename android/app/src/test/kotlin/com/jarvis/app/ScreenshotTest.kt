@@ -62,21 +62,20 @@ class ScreenshotTest {
     )
 
     @Test
-    fun mainClaudeReasoning() {
-        val (tasks, _) = TaskBoard().start("검색 결과 분석", AiEngine.CLAUDE)
+    fun mainReasoning() {
+        val (tasks, _) = TaskBoard().start("AI 에이전트 작업", AiEngine.NVIDIA)
         render(
             MainUiState(
-                machine = JarvisStateMachine().forced(JarvisState.ClaudeReasoning),
+                machine = JarvisStateMachine().forced(JarvisState.Reasoning),
                 log = conversation,
                 tasks = tasks,
                 backend = ConnectionStatus.Connected,
                 engines = mapOf(
                     AiEngine.NVIDIA to ConnectionStatus.Configured,
                     AiEngine.GOOGLE to ConnectionStatus.NotConfigured,
-                    AiEngine.CLAUDE to ConnectionStatus.Configured,
                 ),
             ),
-            "main_claude_reasoning",
+            "main_reasoning",
         )
     }
 
@@ -110,7 +109,6 @@ class ScreenshotTest {
                     listOf(
                         com.jarvis.core.network.EngineUsage("nvidia", 12, 0, 0, 900, 400, 0, 0),
                         com.jarvis.core.network.EngineUsage("google", 3, 0, 0, 60, 180, 3, 0),
-                        com.jarvis.core.network.EngineUsage("claude", 1, 0, 0, 1200, 800, 2, 50),
                     ),
                 ),
             ),

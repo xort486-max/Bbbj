@@ -20,7 +20,7 @@ data class EnginesResponse(val engines: List<EngineInfo>)
 
 @Serializable
 data class EngineInfo(
-    /** "nvidia" | "google" | "claude" */
+    /** "nvidia" | "google" */
     val id: String,
     /** API Key 및 필수 설정값이 백엔드에 존재하는지 (실제 호출 성공 여부와는 별개) */
     val configured: Boolean,

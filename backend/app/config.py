@@ -11,19 +11,19 @@ from dataclasses import dataclass, field
 from typing import Mapping
 
 DEFAULT_NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-# NVIDIA API Catalog 대화 모델. 2026-11-21 실제 /v1/models 조회 + 한국어 응답 시험으로 선택
+# NVIDIA API Catalog 모델. 2026-11-21 실제 /v1/models 조회 + 한국어 응답 시험으로 선택
 # (문서에 남아 있던 qwen/qwen3-next-80b-a3b-instruct는 2026-07-27 지원 종료 — 410 응답 확인).
+# 대화: 빠른 소형 모델 (추론 끔, 0.3~1초) / 에이전트: 대형 추론 모델 (기획·코드·문서, 약 6초)
 DEFAULT_NVIDIA_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
+DEFAULT_NVIDIA_AGENT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
 DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 # Gemini 4 Hydrogen: 일상 작업용 빠르고 효율적인 모델 (aistudio.google.com/docs/models 확인, 2026-11)
 DEFAULT_GEMINI_MODEL = "gemini-4-hydrogen"
-DEFAULT_CLAUDE_MODEL = "claude-opus-5-5"
 
 # Google 검색 제공 방식. Custom Search JSON API는 신규 고객 접수가 중단되었고 2027-01-01 종료 예정.
 # PHASE 2부터 gemini_grounding을 구현했다. 나머지 값은 설정 확인 용도로만 남겨 둔다.
 GOOGLE_SEARCH_PROVIDERS = {"custom_search", "vertex_ai_search", "gemini_grounding"}
 IMPLEMENTED_GOOGLE_PROVIDERS = {"gemini_grounding"}
-CLAUDE_EFFORTS = {"low", "medium", "high", "xhigh", "max"}
 
 
 def _clean(value: str | None) -> str | None:
@@ -64,6 +64,10 @@ class Settings:
     # 모델의 추론(thinking) 모드. False=끔(빠른 대화), True=켬, None=요청에 넣지 않음(모델 기본값).
     # chat_template_kwargs.enable_thinking — Nemotron 계열 문서에 명시된 옵션. 다른 모델은 "auto" 권장.
     nvidia_enable_thinking: bool | None = False
+    # 에이전트(복잡한 명령·기획·코드·문서)용 모델. 추론 모드는 기본적으로 모델 기본값(켜짐)을 사용.
+    nvidia_agent_model: str = DEFAULT_NVIDIA_AGENT_MODEL
+    nvidia_agent_max_tokens: int = 8192
+    nvidia_agent_enable_thinking: bool | None = None
 
     # Google — 검색 엔진
     google_search_provider: str | None = None
@@ -74,26 +78,17 @@ class Settings:
     google_cloud_project: str | None = None
     vertex_search_engine_id: str | None = None
 
-    # Claude — AI 두뇌 · 에이전트
-    anthropic_api_key: str | None = field(default=None, repr=False)
-    claude_model: str = DEFAULT_CLAUDE_MODEL
-    claude_effort: str = "medium"
-    claude_max_tokens: int = 16000
-    claude_web_search_max_uses: int = 5
-
     # 사용량 · 한도 (0 = 제한 없음)
     usage_db_path: str = "jarvis_usage.sqlite3"
     timezone: str = "Asia/Seoul"
     daily_limit_nvidia: int = 0
     daily_limit_google: int = 0
-    daily_limit_claude: int = 0
     response_cache_ttl_seconds: int = 600
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
         env = os.environ if env is None else env
         provider = _clean(env.get("GOOGLE_SEARCH_PROVIDER"))
-        effort = (_clean(env.get("CLAUDE_EFFORT")) or "medium").lower()
         return cls(
             app_token=_clean(env.get("JARVIS_APP_TOKEN")),
             nvidia_api_key=_clean(env.get("NVIDIA_API_KEY")),
@@ -101,6 +96,9 @@ class Settings:
             nvidia_model=_clean(env.get("NVIDIA_MODEL")) or DEFAULT_NVIDIA_MODEL,
             nvidia_max_tokens=_int(env.get("NVIDIA_MAX_TOKENS"), 2048, minimum=64),
             nvidia_enable_thinking=_tri_state(env.get("NVIDIA_ENABLE_THINKING"), default=False),
+            nvidia_agent_model=_clean(env.get("NVIDIA_AGENT_MODEL")) or DEFAULT_NVIDIA_AGENT_MODEL,
+            nvidia_agent_max_tokens=_int(env.get("NVIDIA_AGENT_MAX_TOKENS"), 8192, minimum=256),
+            nvidia_agent_enable_thinking=_tri_state(env.get("NVIDIA_AGENT_ENABLE_THINKING"), default=None),
             google_search_provider=provider.lower() if provider else None,
             google_api_key=_clean(env.get("GOOGLE_API_KEY")),
             gemini_base_url=(_clean(env.get("GEMINI_BASE_URL")) or DEFAULT_GEMINI_BASE_URL).rstrip("/"),
@@ -108,16 +106,10 @@ class Settings:
             google_cse_id=_clean(env.get("GOOGLE_CSE_ID")),
             google_cloud_project=_clean(env.get("GOOGLE_CLOUD_PROJECT")),
             vertex_search_engine_id=_clean(env.get("VERTEX_SEARCH_ENGINE_ID")),
-            anthropic_api_key=_clean(env.get("ANTHROPIC_API_KEY")),
-            claude_model=_clean(env.get("CLAUDE_MODEL")) or DEFAULT_CLAUDE_MODEL,
-            claude_effort=effort if effort in CLAUDE_EFFORTS else "medium",
-            claude_max_tokens=_int(env.get("CLAUDE_MAX_TOKENS"), 16000, minimum=1024),
-            claude_web_search_max_uses=_int(env.get("CLAUDE_WEB_SEARCH_MAX_USES"), 5, minimum=1),
             usage_db_path=_clean(env.get("JARVIS_USAGE_DB")) or "jarvis_usage.sqlite3",
             timezone=_clean(env.get("JARVIS_TIMEZONE")) or "Asia/Seoul",
             daily_limit_nvidia=_int(env.get("DAILY_LIMIT_NVIDIA"), 0),
             daily_limit_google=_int(env.get("DAILY_LIMIT_GOOGLE"), 0),
-            daily_limit_claude=_int(env.get("DAILY_LIMIT_CLAUDE"), 0),
             response_cache_ttl_seconds=_int(env.get("RESPONSE_CACHE_TTL_SECONDS"), 600),
         )
 
@@ -148,9 +140,6 @@ class Settings:
                 missing.append("GOOGLE_API_KEY")
         return missing
 
-    def claude_missing(self) -> list[str]:
-        return [] if self.anthropic_api_key else ["ANTHROPIC_API_KEY"]
-
     # --- 실제로 호출 가능한지 (설정 완료 + 구현된 제공자) ---
 
     @property
@@ -161,11 +150,5 @@ class Settings:
     def google_ready(self) -> bool:
         return not self.google_missing() and self.google_search_provider in IMPLEMENTED_GOOGLE_PROVIDERS
 
-    @property
-    def claude_ready(self) -> bool:
-        return not self.claude_missing()
-
     def daily_limit(self, engine: str) -> int:
-        return {"nvidia": self.daily_limit_nvidia, "google": self.daily_limit_google, "claude": self.daily_limit_claude}.get(
-            engine, 0
-        )
+        return {"nvidia": self.daily_limit_nvidia, "google": self.daily_limit_google}.get(engine, 0)

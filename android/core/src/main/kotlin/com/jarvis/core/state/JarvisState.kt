@@ -11,9 +11,8 @@ sealed interface JarvisState {
     /** 현재 상태에서 작동 중인 엔진. */
     val activeEngine: AiEngine?
         get() = when (this) {
-            NvidiaResponding -> AiEngine.NVIDIA
+            NvidiaResponding, Reasoning -> AiEngine.NVIDIA
             GoogleSearching -> AiEngine.GOOGLE
-            ClaudeReasoning -> AiEngine.CLAUDE
             Analyzing, ExecutingTask -> AiEngine.LOCAL
             Idle, Listening, Completed, is Error -> null
         }
@@ -21,7 +20,7 @@ sealed interface JarvisState {
     /** 사용자가 중단할 수 있는 처리 중 상태인지. */
     val isBusy: Boolean
         get() = when (this) {
-            Listening, Analyzing, NvidiaResponding, GoogleSearching, ClaudeReasoning, ExecutingTask -> true
+            Listening, Analyzing, NvidiaResponding, GoogleSearching, Reasoning, ExecutingTask -> true
             Idle, Completed, is Error -> false
         }
 
@@ -55,10 +54,11 @@ sealed interface JarvisState {
         override val hudCode = "GOOGLE · SEARCHING"
     }
 
-    data object ClaudeReasoning : JarvisState {
-        override val kind = Kind.CLAUDE_REASONING
-        override val displayName = "Claude 추론 중"
-        override val hudCode = "CLAUDE · REASONING"
+    /** 심층 추론 중 — 복잡한 명령·기획·코드 (NVIDIA 대형 추론 모델) */
+    data object Reasoning : JarvisState {
+        override val kind = Kind.REASONING
+        override val displayName = "심층 추론 중"
+        override val hudCode = "DEEP · REASONING"
     }
 
     data object ExecutingTask : JarvisState {
@@ -82,7 +82,7 @@ sealed interface JarvisState {
     /** 전이 규칙 비교용 판별자 (오류 메시지와 무관). */
     enum class Kind {
         IDLE, LISTENING, ANALYZING, NVIDIA_RESPONDING, GOOGLE_SEARCHING,
-        CLAUDE_REASONING, EXECUTING_TASK, COMPLETED, ERROR,
+        REASONING, EXECUTING_TASK, COMPLETED, ERROR,
     }
 
     companion object {
@@ -91,7 +91,7 @@ sealed interface JarvisState {
         val all: List<JarvisState>
             get() = listOf(
             Idle, Listening, Analyzing, NvidiaResponding, GoogleSearching,
-            ClaudeReasoning, ExecutingTask, Completed, Error("예시 오류"),
+            Reasoning, ExecutingTask, Completed, Error("예시 오류"),
         )
     }
 }

@@ -46,7 +46,7 @@ fun SourceLinks(sources: List<SourceLink>, provider: String?) {
     val uriHandler = LocalUriHandler.current
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
-            if (provider == "google") "출처 · Google 검색" else "출처 · Claude 웹 검색",
+            if (provider == "google") "출처 · Google 검색" else "출처",
             style = JarvisType.hud(9.sp, FontWeight.Bold, JarvisColors.TextSecondary),
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
