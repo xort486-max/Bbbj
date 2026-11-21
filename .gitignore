@@ -1,0 +1,28 @@
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+*.p8
+*.p12
+*.mobileprovision
+
+# --- Xcode / Swift ---
+ios/*.xcodeproj/
+ios/*.xcworkspace/
+xcuserdata/
+DerivedData/
+.build/
+.swiftpm/
+*.xcresult
+Package.resolved
+
+# --- Python ---
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# --- OS / editors ---
+.DS_Store
+.idea/
+.vscode/
