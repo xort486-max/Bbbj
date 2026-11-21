@@ -14,6 +14,8 @@ import asyncio
 import sys
 import time
 
+from dotenv import load_dotenv
+
 from app.config import Settings
 from app.engines.base import Sources, TextDelta, Usage, build_messages
 from app.services.container import Services
@@ -58,6 +60,7 @@ CHECKS = {"nvidia": ("nvidia", check_nvidia), "google": ("gemini", check_google)
 
 
 async def main(selected: list[str]) -> int:
+    load_dotenv(".env")  # backend 폴더의 .env (이미 설정된 환경변수는 덮어쓰지 않음)
     settings = Settings.from_env()
     services = Services.build(settings)
     failures = 0
