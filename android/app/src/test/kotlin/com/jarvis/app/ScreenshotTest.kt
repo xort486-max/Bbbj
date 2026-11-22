@@ -7,7 +7,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.jarvis.app.ui.main.MainActions
 import com.jarvis.app.ui.main.MainScreen
-import com.jarvis.app.ui.main.MainUiState
+import com.jarvis.app.assistant.MainUiState
 import com.jarvis.app.ui.settings.SettingsActions
 import com.jarvis.app.ui.settings.SettingsScreen
 import com.jarvis.app.ui.theme.JarvisTheme
@@ -114,6 +114,45 @@ class ScreenshotTest {
             ),
             "main_search_sources",
         )
+    }
+
+    @Test
+    fun mainListening() = render(
+        MainUiState(
+            machine = JarvisStateMachine().forced(JarvisState.Listening),
+            log = conversation,
+            backend = ConnectionStatus.Connected,
+            engines = AiEngine.remoteEngines.associateWith { ConnectionStatus.Configured },
+            voiceAvailable = true,
+            micPermission = true,
+            isListening = true,
+            voiceSessionActive = true,
+            partialTranscript = "오늘 서울 날씨 어때",
+            audioLevel = 0.6f,
+        ),
+        "main_listening",
+    )
+
+    @Test
+    fun settingsVoice() {
+        compose.setContent {
+            JarvisTheme {
+                val scroll = androidx.compose.foundation.rememberScrollState(0)
+                SettingsScreen(
+                    ui = MainUiState(
+                        voiceAvailable = true,
+                        micPermission = true,
+                        wakeServiceRunning = true,
+                        voiceSettings = com.jarvis.core.voice.VoiceSettings(wakeWordEnabled = true, continuousConversation = true),
+                    ),
+                    savedUrl = "http://192.168.0.10:8000",
+                    versionName = "0.3.0",
+                    actions = SettingsActions(),
+                    hotwordStatus = com.jarvis.app.voice.HotwordModelStatus.Ready,
+                )
+            }
+        }
+        compose.onRoot().captureRoboImage("screenshots/settings_voice_top.png")
     }
 
     @Test

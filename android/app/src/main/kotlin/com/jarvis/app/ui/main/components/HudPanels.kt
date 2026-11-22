@@ -43,7 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jarvis.app.ui.main.MicrophoneStatus
+import com.jarvis.app.assistant.MicrophoneStatus
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
 import com.jarvis.app.ui.theme.hudPanel
@@ -110,7 +110,7 @@ fun StatusHeader(state: JarvisState, microphone: MicrophoneStatus, onSettings: (
 /** 마이크 사용 여부 표시. 마이크가 켜져 있으면 반드시 눈에 띄게 표시한다. */
 @Composable
 fun MicrophoneIndicator(status: MicrophoneStatus) {
-    val live = status == MicrophoneStatus.LIVE
+    val live = status.isLive
     val fg = if (live) JarvisColors.Failure else JarvisColors.TextDim
     val shape = RoundedCornerShape(50)
     Row(

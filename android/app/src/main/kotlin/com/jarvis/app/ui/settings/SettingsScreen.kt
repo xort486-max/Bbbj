@@ -19,6 +19,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.SliderState
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -28,6 +34,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,7 +46,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jarvis.app.ui.main.MainUiState
+import com.jarvis.app.assistant.MainUiState
+import com.jarvis.app.voice.HotwordModelManager
+import com.jarvis.app.voice.HotwordModelStatus
+import com.jarvis.core.voice.VoiceSettings
+import androidx.compose.ui.graphics.Color
 import com.jarvis.app.ui.main.components.HudSectionTitle
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
@@ -59,11 +70,23 @@ data class SettingsActions(
     val onDebugState: ((JarvisState) -> Unit)? = null,
     val onDebugSeed: (() -> Unit)? = null,
     val onClearConversation: () -> Unit = {},
+    // --- 음성 ---
+    val onVoiceSettings: ((VoiceSettings) -> VoiceSettings) -> Unit = {},
+    val onWakeWordToggle: (Boolean) -> Unit = {},
+    val onDownloadHotwordModel: () -> Unit = {},
+    val onDeleteHotwordModel: () -> Unit = {},
+    val onOpenBatterySettings: () -> Unit = {},
 )
 
 /** 앱 설정: 백엔드 주소, 앱 인증 토큰(Keystore 암호화), 디자인 점검(디버그 빌드). */
 @Composable
-fun SettingsScreen(ui: MainUiState, savedUrl: String, versionName: String, actions: SettingsActions) {
+fun SettingsScreen(
+    ui: MainUiState,
+    savedUrl: String,
+    versionName: String,
+    actions: SettingsActions,
+    hotwordStatus: HotwordModelStatus = HotwordModelStatus.NotDownloaded,
+) {
     var url by rememberSaveable(savedUrl) { mutableStateOf(savedUrl) }
     val token = rememberTextFieldState()
     var message by remember { mutableStateOf<Pair<String, Boolean>?>(null) } // (문구, 오류 여부)
@@ -144,6 +167,8 @@ fun SettingsScreen(ui: MainUiState, savedUrl: String, versionName: String, actio
             Hint("백엔드의 JARVIS_APP_TOKEN 값과 같아야 합니다. Android Keystore 키로 암호화해 이 기기에만 저장합니다.")
         }
 
+        VoiceSection(ui, hotwordStatus, actions)
+
         Section("// CONNECTION") {
             Button(onClick = actions.onTestConnection) { Text("연결 테스트") }
             StatusLine("백엔드", ui.backend)
@@ -178,9 +203,112 @@ fun SettingsScreen(ui: MainUiState, savedUrl: String, versionName: String, actio
 
         Section("// ABOUT") {
             StatusText("버전", versionName)
-            StatusText("개발 단계", "PHASE 2 — AI 엔진 연결")
+            StatusText("개발 단계", "PHASE 3 — 음성")
         }
         Spacer(Modifier.padding(8.dp))
+    }
+}
+
+@Composable
+private fun VoiceSection(ui: MainUiState, hotwordStatus: HotwordModelStatus, actions: SettingsActions) {
+    val voice = ui.voiceSettings
+    Section("// VOICE") {
+        if (!ui.voiceAvailable) {
+            Text("이 기기에서 음성 인식을 사용할 수 없습니다. Google 앱이 설치·활성화되어 있는지 확인하세요.",
+                style = JarvisType.body(12.sp, color = JarvisColors.Warning))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("인식 언어", style = JarvisType.body(13.sp), modifier = Modifier.weight(1f))
+            listOf("ko-KR" to "한국어", "en-US" to "English").forEach { (tag, label) ->
+                TextButton(onClick = { actions.onVoiceSettings { it.copy(language = tag) } }) {
+                    Text(label, color = if (voice.language == tag) JarvisColors.Cyan else JarvisColors.TextDim,
+                        fontWeight = if (voice.language == tag) FontWeight.Bold else FontWeight.Normal)
+                }
+            }
+        }
+        ToggleRow("답변 소리 내어 읽기", "음성으로 물으면 답을 읽어 줍니다", voice.speakReplies) { on ->
+            actions.onVoiceSettings { it.copy(speakReplies = on) }
+        }
+        ToggleRow("음성 대화 모드", "답변을 읽은 뒤 자동으로 다시 듣습니다", voice.continuousConversation) { on ->
+            actions.onVoiceSettings { it.copy(continuousConversation = on) }
+        }
+        SliderRow("말하기 속도", voice.speechRate, 0.5f..2.0f, { "%.1f배".format(it) }) { v ->
+            actions.onVoiceSettings { it.copy(speechRate = v) }
+        }
+        SliderRow("음량", voice.volume, 0f..1f, { "${(it * 100).toInt()}%" }) { v ->
+            actions.onVoiceSettings { it.copy(volume = v) }
+        }
+    }
+
+    Section("// \"자비스\" 호출 (앱이 꺼져 있어도)") {
+        Hint(
+            "\"자비스\"라고 부르면 앱이 꺼져 있어도 응답합니다. 호출어는 인터넷 없이 기기 안에서만 인식하며 녹음을 저장하거나 보내지 않습니다. " +
+                "대기 중에는 Android 규칙에 따라 상단에 알림이 계속 표시되고 마이크 표시등이 켜지며, 배터리를 더 사용합니다.",
+        )
+        when (hotwordStatus) {
+            HotwordModelStatus.NotDownloaded, is HotwordModelStatus.Failed -> {
+                (hotwordStatus as? HotwordModelStatus.Failed)?.let {
+                    Text("다운로드 실패: ${it.message}", style = JarvisType.body(12.sp, color = JarvisColors.Failure))
+                }
+                Hint("먼저 오프라인 호출어 모델을 받아야 합니다 (${HotwordModelManager.SIZE_LABEL}, Wi-Fi 권장).")
+                Button(onClick = actions.onDownloadHotwordModel) { Text("호출어 모델 다운로드") }
+            }
+            is HotwordModelStatus.Downloading -> {
+                Text("모델 다운로드 중… ${(hotwordStatus.progress * 100).toInt()}%", style = JarvisType.body(13.sp))
+                LinearProgressIndicator(progress = { hotwordStatus.progress }, modifier = Modifier.fillMaxWidth(), color = JarvisColors.Cyan)
+            }
+            HotwordModelStatus.Ready -> {
+                ToggleRow(
+                    "\"자비스\" 상시 대기",
+                    if (ui.wakeServiceRunning) "대기 중 — 알림에서도 끌 수 있습니다" else "꺼짐",
+                    ui.voiceSettings.wakeWordEnabled,
+                ) { on -> actions.onWakeWordToggle(on) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = actions.onOpenBatterySettings) { Text("배터리 최적화 설정") }
+                    TextButton(onClick = actions.onDeleteHotwordModel) { Text("모델 삭제", color = JarvisColors.TextDim) }
+                }
+                Hint("삼성 등 일부 기기는 배터리 절약을 위해 백그라운드 앱을 멈춥니다. 대기가 자주 꺼지면 JARVIS 배터리 사용을 \"제한 없음\"으로 바꾸세요. 휴대폰을 다시 켠 뒤에는 앱을 한 번 열어야 대기가 다시 시작됩니다.")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToggleRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = JarvisType.body(14.sp))
+            Text(subtitle, style = JarvisType.body(11.sp, color = JarvisColors.TextDim))
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(checkedThumbColor = Color.Black, checkedTrackColor = JarvisColors.Cyan),
+        )
+    }
+}
+
+@Composable
+private fun SliderRow(
+    title: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    label: (Float) -> String,
+    onChange: (Float) -> Unit,
+) {
+    val state = remember(range) { SliderState(value, 0, range) }
+    LaunchedEffect(value) { state.value = value }
+    Column {
+        Row {
+            Text(title, style = JarvisType.body(13.sp), modifier = Modifier.weight(1f))
+            Text(label(state.value), style = JarvisType.hud(12.sp, color = JarvisColors.Cyan))
+        }
+        Slider(
+            state = state,
+            onValueChange = { state.value = it },
+            onValueChangeFinished = { onChange(state.value) },
+            colors = SliderDefaults.colors(thumbColor = JarvisColors.Cyan, activeTrackColor = JarvisColors.Cyan),
+        )
     }
 }
 

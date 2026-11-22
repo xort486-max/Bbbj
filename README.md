@@ -12,9 +12,9 @@
 
 ## 화면 미리보기
 
-| 대기 | 심층 추론 중 | 검색 답변 + 출처 | 오류 | 설정 |
-|---|---|---|---|---|
-| ![](android/app/screenshots/main_idle.png) | ![](android/app/screenshots/main_reasoning.png) | ![](android/app/screenshots/main_search_sources.png) | ![](android/app/screenshots/main_error.png) | ![](android/app/screenshots/settings.png) |
+| 대기 | 음성 인식 중 | 심층 추론 중 | 검색 답변 + 출처 | 오류 | 설정 |
+|---|---|---|---|---|---|
+| ![](android/app/screenshots/main_idle.png) | ![](android/app/screenshots/main_listening.png) | ![](android/app/screenshots/main_reasoning.png) | ![](android/app/screenshots/main_search_sources.png) | ![](android/app/screenshots/main_error.png) | ![](android/app/screenshots/settings.png) |
 
 ## 요청 처리
 
@@ -25,6 +25,8 @@
 | "전기차 시장 동향 조사해서 분석해줘" | 검색 분석 | Google (Gemini Grounding) — 비교·분석 |
 | "파이썬 자동화 프로젝트 기획해줘" | 에이전트 | NVIDIA 대형 추론 모델 (nemotron-3-ultra) |
 | "7시에 알람 맞춰줘" | 기기 기능 | 로컬 (PHASE 4) |
+
+**음성**: 마이크 버튼으로 말하기 · 답변 읽어 주기 · 음성 대화 모드 · **"자비스" 호출 (앱이 꺼져 있어도, 설정에서 켜기)**
 
 (Robolectric + Roborazzi로 실제 Compose 렌더링 결과를 기록한 이미지)
 

@@ -74,10 +74,10 @@ class TaskBoardTest {
 class FeatureAndStatusTest {
     @Test
     fun onlyActuallyImplementedFeaturesAreMarkedReady() {
-        // 동작하지 않는 기능을 "사용 가능"으로 표시하면 안 된다. PHASE 2 기준: 검색만 구현.
+        // 동작하지 않는 기능을 "사용 가능"으로 표시하면 안 된다. PHASE 3 기준: 음성·검색만 구현.
         val implemented = JarvisFeature.entries.filter { it.isImplemented }
-        assertEquals(listOf(JarvisFeature.SEARCH), implemented)
-        for (feature in JarvisFeature.entries - JarvisFeature.SEARCH) {
+        assertEquals(listOf(JarvisFeature.VOICE, JarvisFeature.SEARCH), implemented)
+        for (feature in JarvisFeature.entries - setOf(JarvisFeature.VOICE, JarvisFeature.SEARCH)) {
             assertEquals("PHASE ${feature.plannedPhase} 예정", feature.availabilityLabel)
         }
         assertEquals("사용 가능", JarvisFeature.SEARCH.availabilityLabel)

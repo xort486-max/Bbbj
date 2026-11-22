@@ -1,8 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 백엔드 서버 접속. 마이크·캘린더 등 권한은 해당 기능을 구현하는 단계(PHASE 3·4)에서 추가한다. -->
+    <!-- 백엔드 서버 접속, 호출어 모델 다운로드 -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 음성 인식 · "자비스" 호출어 (PHASE 3) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- 앱이 꺼져 있어도 호출어를 듣는 마이크 포그라운드 서비스 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- 호출 대기 상시 알림 (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Android 11+ 패키지 공개 범위: 음성 인식 서비스와 TTS 엔진을 찾기 위해 필요 -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
 
     <application
         android:name=".JarvisApplication"
@@ -18,11 +35,17 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".voice.JarvisVoiceService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
     </application>
 </manifest>

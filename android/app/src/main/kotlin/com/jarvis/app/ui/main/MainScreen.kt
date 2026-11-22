@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jarvis.app.assistant.MainUiState
 import com.jarvis.app.ui.main.components.ArcReactorCore
 import com.jarvis.app.ui.main.components.CommandInputBar
 import com.jarvis.app.ui.main.components.ConversationPanel
@@ -74,7 +75,7 @@ fun MainScreen(ui: MainUiState, actions: MainActions) {
 
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 ArcReactorCore(state, ui.audioLevel, Modifier.size(200.dp))
-                Text(state.displayName, style = JarvisType.body(15.sp, FontWeight.SemiBold, stateColor))
+                Text(ui.statusLabel, style = JarvisType.body(15.sp, FontWeight.SemiBold, stateColor))
                 if (state is com.jarvis.core.state.JarvisState.Error) {
                     Text(
                         state.message,
@@ -87,15 +88,36 @@ fun MainScreen(ui: MainUiState, actions: MainActions) {
 
             TaskStatusPanel(ui.visibleTasks, state, actions.onCancel)
             ConversationPanel(ui.log.messages, Modifier.weight(1f).heightIn(min = 100.dp))
+            if (ui.isListening) ListeningBanner(ui.partialTranscript)
             QuickActionsBar(actions.onFeature)
             CommandInputBar(
-                microphoneAvailable = JarvisFeature.VOICE.isImplemented,
+                microphoneAvailable = ui.voiceAvailable,
+                voiceActive = ui.isListening || ui.isSpeaking || (state.isBusy && ui.voiceSessionActive),
                 busy = state.isBusy,
                 placeholder = if (ui.pendingRoute == com.jarvis.core.routing.Route.SEARCH) "검색어를 입력하세요 (Google 검색)" else "명령을 입력하세요",
                 onSubmit = actions.onSubmit,
                 onMicrophone = actions.onMicrophone,
             )
         }
+    }
+}
+
+/** 음성 인식 중 — 들리는 말을 실시간으로 보여 준다. */
+@Composable
+private fun ListeningBanner(partial: String?) {
+    androidx.compose.foundation.layout.Row(
+        Modifier
+            .fillMaxWidth()
+            .background(JarvisColors.Failure.copy(alpha = 0.10f), androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("● ", style = JarvisType.body(13.sp, color = JarvisColors.Failure))
+        Text(
+            partial?.takeIf { it.isNotBlank() } ?: "듣는 중… 말씀하세요",
+            style = JarvisType.body(14.sp, color = if (partial.isNullOrBlank()) JarvisColors.TextSecondary else JarvisColors.TextPrimary),
+            maxLines = 2,
+        )
     }
 }
 

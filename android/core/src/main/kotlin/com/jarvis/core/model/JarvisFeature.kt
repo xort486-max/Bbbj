@@ -19,7 +19,8 @@ enum class JarvisFeature(val title: String, val plannedPhase: Int) {
     val isImplemented: Boolean
         get() = when (this) {
             SEARCH -> true // PHASE 2: Google(Gemini Grounding) 검색
-            VOICE, CALENDAR, ALARM, NOTE, PROJECT, VIDEO -> false
+            VOICE -> true // PHASE 3: 음성 인식 · 음성 응답 · "자비스" 호출
+            CALENDAR, ALARM, NOTE, PROJECT, VIDEO -> false
         }
 
     val availabilityLabel: String

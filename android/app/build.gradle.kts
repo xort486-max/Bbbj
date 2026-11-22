@@ -65,6 +65,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.okhttp)
+    // 오프라인 호출어("자비스") 인식 — Vosk (Apache 2.0)
+    implementation(libs.vosk.android)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

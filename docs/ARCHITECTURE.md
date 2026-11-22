@@ -1,6 +1,6 @@
 # JARVIS (Android) — 기술 설계서
 
-> 최종 수정: 2026-11-21 (PHASE 2 — AI 엔진 연결, Claude API 제외)
+> 최종 수정: 2026-11-22 (PHASE 3 — 음성, "자비스" 상시 호출)
 
 ## 0. 플랫폼 전환 기록
 - 2026-11-21: 개발 PC가 Windows라서 iOS(Xcode 필요)에서 **Android (Kotlin + Jetpack Compose)** 로 전환.
@@ -12,13 +12,13 @@
 ┌──────────────────────── Android 앱 (Kotlin · Compose) ─────────────────────┐
 │  UI 계층        MainScreen · SettingsScreen · HUD 컴포넌트 (상태 없는 화면)  │
 │      │                                                                      │
-│  ViewModel      MainViewModel (StateFlow<MainUiState>)                      │
+│  컨트롤러       JarvisController (앱 전역 — 화면·음성 서비스가 공유)        │
 │      │                                                                      │
 │  :core 모듈     상태 머신 · 대화 기록 · 작업 보드 · 백엔드 클라이언트(OkHttp) │
 │  (순수 Kotlin)   CommandClassifier · AssistService(SSE 스트림)              │
 │      │                                                                      │
-│  기기 서비스     SpeechRecognizer · TextToSpeech · CalendarContract ·        │
-│  (PHASE 3~4)    AlarmClock 인텐트 · 파일(SAF) · 공유 · 앱 바로가기           │
+│  음성           SpeechRecognizer · TextToSpeech · Vosk 호출어 · 음성 서비스  │
+│  기기(PHASE 4)  CalendarContract · AlarmClock · 파일(SAF) · 공유 · 바로가기 │
 │      │                                                                      │
 │  저장소         DataStore(백엔드 주소) · Keystore AES-GCM(앱 토큰)           │
 └──────┬──────────────────────────────────────────────────────────────────────┘
@@ -109,10 +109,10 @@ Interactions API (`POST /v1beta/interactions`, `Api-Revision: 2026-05-20`, `stor
 
 | 기능 | 방식 | 비고 |
 |---|---|---|
-| 웨이크 워드 "자비스" | 전경: 앱 내 상시 청취. 백그라운드: `microphone` 유형 포그라운드 서비스 + 상시 알림 | 백그라운드에서 서비스를 새로 시작하는 데 제약이 있음(Android 14+). 상시 청취용 오프라인 웨이크워드 엔진 선택 필요 (PHASE 3) |
+| 웨이크 워드 "자비스" | ✅ `JarvisVoiceService`(microphone 포그라운드 서비스, 상시 알림) + Vosk 오프라인 한국어 모델로 기기 내 감지 → 감지 후 SpeechRecognizer로 명령 인식 | 앱 화면이 보일 때만 시작 가능, 재부팅 후 자동 시작 불가(Android 14+) |
 | 기본 디지털 어시스턴트 | `VoiceInteractionService` 구현 → 사용자가 설정에서 기본 어시스턴트로 지정 | 전원/홈 버튼 길게 누르기로 호출 가능. PHASE 3~4에서 검토 |
-| 음성 인식 | `SpeechRecognizer` (ko-KR), Android 12+ 기기 내 인식기 | STT는 인터페이스로 추상화 |
-| 음성 출력 | `TextToSpeech` | 한국어 음성은 설치된 TTS 엔진에 따라 다름 |
+| 음성 인식 | ✅ `SpeechRecognizer` (ko-KR/en-US), Android 12+ 기기 내 인식 우선 | `VoiceInput` 인터페이스로 추상화 |
+| 음성 출력 | ✅ `TextToSpeech` (속도·음량, 중단) | 한국어 음성은 설치된 TTS 엔진에 따라 다름 |
 | 일정 | `CalendarContract` (READ/WRITE_CALENDAR 권한) | |
 | 알람 | `AlarmClock.ACTION_SET_ALARM` 인텐트 | iOS와 달리 시계 앱 알람 생성 가능 |
 | 미리 알림 | 시스템 공용 API 없음 → 앱 내 알림 + 알림 예약 | 또는 Google Tasks API(OAuth) |

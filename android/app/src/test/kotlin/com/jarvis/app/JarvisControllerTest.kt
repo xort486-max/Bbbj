@@ -1,6 +1,8 @@
 package com.jarvis.app
 
-import com.jarvis.app.ui.main.MainViewModel
+import com.jarvis.app.assistant.JarvisController
+import com.jarvis.core.voice.VoiceSettings
+import kotlinx.coroutines.test.TestScope
 import com.jarvis.core.model.AiEngine
 import com.jarvis.core.model.ConnectionStatus
 import com.jarvis.core.model.ConversationMessage
@@ -30,7 +32,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class MainViewModelTest {
+class JarvisControllerTest {
     private val dispatcher = StandardTestDispatcher()
 
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
@@ -39,12 +41,18 @@ class MainViewModelTest {
 
     private val healthOk = 200 to """{"status":"ok","service":"jarvis-backend","version":"0.1.0"}"""
 
-    private fun model(
+    private fun TestScope.model(
         url: String = "",
         token: String? = "t",
         routes: Map<String, Pair<Int, String>> = emptyMap(),
         assist: FakeAssistService = FakeAssistService(),
-    ) = MainViewModel(FakeSettingsStore(url), FakeTokenStore(token), StubTransport(routes), { error("unused") }, { assist })
+        voiceIn: FakeVoiceInput = FakeVoiceInput(),
+        voiceOut: FakeVoiceOutput = FakeVoiceOutput(),
+        voice: VoiceSettings = VoiceSettings(),
+    ) = JarvisController(
+        backgroundScope, FakeSettingsStore(url, voice), FakeTokenStore(token), StubTransport(routes),
+        { error("unused") }, voiceIn, voiceOut, { assist },
+    )
 
     @Test
     fun chatStreamsNvidiaAnswerIntoConversation() = runTest(dispatcher) {
@@ -206,7 +214,7 @@ class MainViewModelTest {
     fun missingBackendUrlShowsNotConfigured() = runTest(dispatcher) {
         val vm = model()
         vm.refreshEngineStatus()
-        advanceUntilIdle()
+        runCurrent()
         assertEquals(ConnectionStatus.NotConfigured, vm.ui.value.backend)
     }
 
@@ -220,7 +228,7 @@ class MainViewModelTest {
             ),
         )
         vm.refreshEngineStatus()
-        advanceUntilIdle()
+        runCurrent()
         val ui = vm.ui.value
         assertEquals(ConnectionStatus.Connected, ui.backend)
         assertEquals(ConnectionStatus.Configured, ui.engines[AiEngine.NVIDIA])
@@ -235,7 +243,7 @@ class MainViewModelTest {
             routes = mapOf("/health" to healthOk, "/v1/engines" to (401 to """{"detail":"bad"}""")),
         )
         vm.refreshEngineStatus()
-        advanceUntilIdle()
+        runCurrent()
         val ui = vm.ui.value
         assertEquals(ConnectionStatus.Connected, ui.backend)
         assertEquals(JarvisTask.Status.FAILED, ui.tasks.finishedTasks.last().status)
@@ -245,9 +253,12 @@ class MainViewModelTest {
     @Test
     fun insecureUrlIsRejectedWithoutNetwork() = runTest(dispatcher) {
         val transport = StubTransport()
-        val vm = MainViewModel(FakeSettingsStore("http://jarvis.example.com"), FakeTokenStore("t"), transport, { error("unused") })
+        val vm = JarvisController(
+            backgroundScope, FakeSettingsStore("http://jarvis.example.com"), FakeTokenStore("t"), transport,
+            { error("unused") }, FakeVoiceInput(), FakeVoiceOutput(),
+        )
         vm.refreshEngineStatus()
-        advanceUntilIdle()
+        runCurrent()
         assertIs<ConnectionStatus.Unreachable>(vm.ui.value.backend)
         assertTrue(transport.requestedUrls.isEmpty())
     }
@@ -275,5 +286,154 @@ class MainViewModelTest {
         vm.debugForceState(JarvisState.Reasoning)
         vm.cancelCurrent()
         assertEquals(JarvisState.Idle, vm.ui.value.state)
+    }
+
+    // --- 음성 (PHASE 3) ---
+
+    private val answerEvents = arrayOf(
+        AssistEvent.RouteInfo(AiEngine.GOOGLE, "gemini"),
+        AssistEvent.Delta("**서울**은 맑습니다."),
+        AssistEvent.Done(AiEngine.GOOGLE, "gemini", false, 1, 1, 1),
+    )
+
+    @Test
+    fun voiceTurnListensProcessesAndSpeaksAnswer() = runTest(dispatcher) {
+        val assist = FakeAssistService(*answerEvents)
+        val voiceIn = FakeVoiceInput(FakeVoiceInput.said("오늘 서울 날씨 알려줘"))
+        val voiceOut = FakeVoiceOutput()
+        val vm = model(url = "https://jarvis.example.com", assist = assist, voiceIn = voiceIn, voiceOut = voiceOut)
+        vm.setMicPermission(true)
+        runCurrent()
+
+        vm.microphoneTapped()
+        runCurrent()
+
+        assertEquals(listOf(Route.SEARCH to "오늘 서울 날씨 알려줘"), assist.calls.map { it.first to it.second })
+        assertEquals(listOf("ko-KR"), voiceIn.languages)
+        assertEquals(listOf("서울은 맑습니다."), voiceOut.spoken, "마크다운 기호 없이 읽어야 한다")
+        val history = vm.ui.value.machine.history.map { it.to }
+        assertEquals(listOf(JarvisState.Listening, JarvisState.Analyzing, JarvisState.GoogleSearching, JarvisState.Completed), history)
+        val ui = vm.ui.value
+        assertFalse(ui.isListening || ui.isSpeaking || ui.voiceSessionActive)
+        assertEquals(null, ui.partialTranscript)
+    }
+
+    @Test
+    fun microphoneRequiresPermission() = runTest(dispatcher) {
+        val voiceIn = FakeVoiceInput(FakeVoiceInput.said("안녕"))
+        val vm = model(voiceIn = voiceIn)
+        runCurrent()
+        vm.microphoneTapped()
+        runCurrent()
+        assertTrue(voiceIn.languages.isEmpty())
+        assertTrue(vm.ui.value.log.last!!.text.contains("마이크 권한"))
+        assertEquals(com.jarvis.app.assistant.MicrophoneStatus.NO_PERMISSION, vm.ui.value.microphone)
+    }
+
+    @Test
+    fun silenceStopsListeningWithNotice() = runTest(dispatcher) {
+        val vm = model(url = "https://jarvis.example.com", voiceIn = FakeVoiceInput())
+        vm.setMicPermission(true)
+        runCurrent()
+        vm.microphoneTapped()
+        runCurrent()
+        assertEquals(JarvisState.Idle, vm.ui.value.state)
+        assertTrue(vm.ui.value.log.last!!.text.contains("듣기를 멈췄습니다"))
+    }
+
+    @Test
+    fun continuousConversationKeepsListeningUntilSilence() = runTest(dispatcher) {
+        val assist = FakeAssistService(*answerEvents)
+        val voiceIn = FakeVoiceInput(FakeVoiceInput.said("첫 질문"), FakeVoiceInput.said("두 번째 질문"))
+        val voiceOut = FakeVoiceOutput()
+        val vm = model(
+            url = "https://jarvis.example.com", assist = assist, voiceIn = voiceIn, voiceOut = voiceOut,
+            voice = VoiceSettings(continuousConversation = true),
+        )
+        vm.setMicPermission(true)
+        runCurrent()
+        vm.microphoneTapped()
+        runCurrent()
+        assertEquals(listOf("첫 질문", "두 번째 질문"), assist.calls.map { it.second })
+        assertEquals(2, voiceOut.spoken.size)
+        assertEquals(3, voiceIn.languages.size, "세 번째 듣기에서 무음 → 종료")
+        assertFalse(vm.ui.value.voiceSessionActive)
+    }
+
+    @Test
+    fun wakeWordGreetsThenListens() = runTest(dispatcher) {
+        val assist = FakeAssistService(*answerEvents)
+        val voiceOut = FakeVoiceOutput()
+        val vm = model(
+            url = "https://jarvis.example.com", assist = assist,
+            voiceIn = FakeVoiceInput(FakeVoiceInput.said("오늘 날씨")), voiceOut = voiceOut,
+        )
+        vm.setMicPermission(true)
+        runCurrent()
+        assertTrue(vm.onWakeWordDetected())
+        assertTrue(vm.voiceActive.value)
+        runCurrent()
+        assertEquals("네, 말씀하세요.", voiceOut.spoken.first())
+        assertEquals("오늘 날씨", assist.calls.single().second)
+        assertFalse(vm.voiceActive.value, "세션이 끝나면 호출어 서비스가 다시 듣도록 false")
+    }
+
+    @Test
+    fun wakeWordIgnoredWhileBusy() = runTest(dispatcher) {
+        val vm = model(voiceOut = FakeVoiceOutput())
+        vm.setMicPermission(true)
+        vm.debugForceState(JarvisState.Reasoning)
+        assertFalse(vm.onWakeWordDetected())
+    }
+
+    @Test
+    fun tappingMicWhileSpeakingStopsVoice() = runTest(dispatcher) {
+        val voiceOut = FakeVoiceOutput(hang = true)
+        val vm = model(
+            url = "https://jarvis.example.com", assist = FakeAssistService(*answerEvents),
+            voiceIn = FakeVoiceInput(FakeVoiceInput.said("날씨")), voiceOut = voiceOut,
+        )
+        vm.setMicPermission(true)
+        runCurrent()
+        vm.microphoneTapped()
+        runCurrent()
+        assertTrue(vm.ui.value.isSpeaking)
+        assertEquals("응답 읽는 중", vm.ui.value.statusLabel)
+        vm.microphoneTapped() // 말하는 중 → 중지
+        runCurrent()
+        assertFalse(vm.ui.value.isSpeaking)
+        assertTrue(voiceOut.stopped > 0)
+        assertFalse(vm.voiceActive.value)
+    }
+
+    @Test
+    fun voiceDeviceCommandSpeaksPhaseNotice() = runTest(dispatcher) {
+        val voiceOut = FakeVoiceOutput()
+        val vm = model(voiceIn = FakeVoiceInput(FakeVoiceInput.said("7시에 알람 맞춰줘")), voiceOut = voiceOut)
+        vm.setMicPermission(true)
+        runCurrent()
+        vm.microphoneTapped()
+        runCurrent()
+        assertTrue(voiceOut.spoken.single().contains("PHASE 4"))
+    }
+
+    @Test
+    fun voiceSettingsArePersistedAndClamped() = runTest(dispatcher) {
+        val vm = model()
+        runCurrent()
+        vm.updateVoiceSettings { it.copy(speechRate = 9f, language = "en-US", wakeWordEnabled = true) }
+        runCurrent()
+        val v = vm.ui.value.voiceSettings
+        assertEquals(Triple(2f, "en-US", true), Triple(v.speechRate, v.language, v.wakeWordEnabled))
+    }
+
+    @Test
+    fun wakeServiceStateShowsLiveMicrophone() = runTest(dispatcher) {
+        val vm = model()
+        vm.setMicPermission(true)
+        vm.setWakeServiceRunning(true)
+        val mic = vm.ui.value.microphone
+        assertEquals(com.jarvis.app.assistant.MicrophoneStatus.WAKE, mic)
+        assertTrue(mic.isLive, "호출 대기 중에도 마이크 사용 중으로 표시")
     }
 }

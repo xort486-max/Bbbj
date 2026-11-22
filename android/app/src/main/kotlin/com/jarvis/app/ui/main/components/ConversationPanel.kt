@@ -38,6 +38,7 @@ import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.MicOff
 import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -189,6 +190,7 @@ fun QuickActionsBar(onSelect: (JarvisFeature) -> Unit) {
 @Composable
 fun CommandInputBar(
     microphoneAvailable: Boolean,
+    voiceActive: Boolean,
     busy: Boolean,
     placeholder: String = "명령을 입력하세요",
     onSubmit: (String) -> Unit,
@@ -232,17 +234,30 @@ fun CommandInputBar(
             }
         }
         Spacer(Modifier.width(10.dp))
+        val micColor = when {
+            voiceActive -> JarvisColors.Failure
+            microphoneAvailable -> JarvisColors.Cyan
+            else -> JarvisColors.Panel
+        }
         IconButton(
             onClick = onMicrophone,
             modifier = Modifier
                 .size(52.dp)
-                .background(if (microphoneAvailable) JarvisColors.Cyan else JarvisColors.Panel, CircleShape)
+                .background(micColor, CircleShape)
                 .border(1.dp, JarvisColors.PanelBorder, CircleShape),
         ) {
             Icon(
-                if (microphoneAvailable) Icons.Outlined.Mic else Icons.Outlined.MicOff,
-                contentDescription = if (microphoneAvailable) "음성 명령 시작" else "음성 명령 (PHASE 3 예정)",
-                tint = if (microphoneAvailable) Color.Black else JarvisColors.TextDim,
+                when {
+                    voiceActive -> Icons.Outlined.Stop
+                    microphoneAvailable -> Icons.Outlined.Mic
+                    else -> Icons.Outlined.MicOff
+                },
+                contentDescription = when {
+                    voiceActive -> "음성 중지"
+                    microphoneAvailable -> "음성 명령 시작"
+                    else -> "음성 인식을 사용할 수 없음"
+                },
+                tint = if (microphoneAvailable || voiceActive) Color.Black else JarvisColors.TextDim,
             )
         }
     }
