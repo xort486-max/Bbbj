@@ -102,4 +102,6 @@ uvicorn app.main:app --env-file .env --host 0.0.0.0 --port 8000
 | 앱에 "토큰이 올바르지 않습니다" | 앱 토큰과 `.env`의 `JARVIS_APP_TOKEN`이 같은지 확인 |
 | "설정 필요: GOOGLE_API_KEY" | `.env`에 키 입력 후 서버 재시작 (`Ctrl+C` → 다시 `uvicorn ...`) |
 | live_check에서 NVIDIA 410 | 모델 지원 종료 → `.env`의 `NVIDIA_MODEL` 변경 (알려 주시면 대체 모델 찾아드림) |
+| live_check google: "할당량이 없습니다 / exceeded your current quota" | Gemini의 Google 검색 그라운딩은 **유료 서비스**라 무료 등급 키로는 쓸 수 없음 → https://aistudio.google.com 에서 결제(Billing) 설정 후 Tier 1로 전환. 검색 월 5,000회 무료, 이후 1,000회당 $14 + 토큰 요금. Google Cloud에서 예산 알림 설정 권장 |
+| 서버 시작 시 `ZoneInfoNotFoundError` | 최신 코드로 `git pull` 후 `pip install -r requirements-dev.txt` (tzdata 설치) |
 | PC IP가 바뀜 | 공유기 재시작 시 바뀔 수 있음 → `ipconfig`로 다시 확인 후 앱 설정 수정 |

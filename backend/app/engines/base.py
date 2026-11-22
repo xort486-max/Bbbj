@@ -79,6 +79,13 @@ def http_error(engine: str, status: int, body: bytes | str) -> EngineError:
         return EngineError(f"{engine} 모델 또는 엔드포인트를 찾을 수 없습니다. 모델 ID를 확인하세요.{suffix}", code="not_found", status=status)
     if status == 410:
         return EngineError(f"{engine} 모델이 지원 종료되었습니다. 설정의 모델 ID를 바꾸세요.{suffix}", code="model_retired", status=status)
+    if status == 429 and detail and any(k in detail.lower() for k in ("quota", "billing", "plan")):
+        # 무료 등급에 할당량이 없거나 결제가 필요한 경우 — 기다려도 해결되지 않으므로 재시도하지 않는다.
+        return EngineError(
+            f"{engine} API 할당량이 없습니다. 무료 등급에서 지원되지 않거나 결제 설정이 필요합니다.{suffix}",
+            code="quota_exceeded",
+            status=status,
+        )
     if status == 429:
         return EngineError(f"{engine} API 요청 한도를 초과했습니다. 잠시 후 다시 시도하세요.{suffix}", code="rate_limited", retryable=True, status=status)
     if status >= 500:

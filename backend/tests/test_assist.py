@@ -295,3 +295,28 @@ def test_timezone_falls_back_when_tz_database_missing(monkeypatch):
     assert store.today() == "2026-11-22"  # UTC 16시 = 한국 다음날 01시
     store.record(engine="nvidia", model="m", route="chat", status="ok")
     assert store.summary()[0].requests == 1
+
+
+def test_quota_exhausted_is_not_retried_and_explains_billing():
+    body = {"error": {"code": 429, "message": "You exceeded your current quota, please check your plan and billing details.",
+                      "status": "RESOURCE_EXHAUSTED"}}
+    upstream = Upstream({GEMINI: lambda r: httpx2.Response(429, json=body)})
+    client, _ = make(upstream)
+    error = dict(parse_sse(assist(client, "search", "날씨").text))["error"]
+    assert error["code"] == "quota_exceeded" and error["retryable"] is False
+    assert "결제 설정" in error["message"]
+    assert len(upstream.calls(GEMINI)) == 1  # 재시도하지 않음
+
+
+def test_plain_rate_limit_is_still_retried():
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return httpx2.Response(429, json={"error": {"message": "Too many requests per minute"}})
+        return httpx2.Response(200, json=GEMINI_INTERACTION)
+
+    client, _ = make(Upstream({GEMINI: handler}))
+    events = parse_sse(assist(client, "search", "날씨").text)
+    assert "done" in names(events) and len(calls) == 2
