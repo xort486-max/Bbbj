@@ -21,6 +21,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.launch
 
 /**
@@ -78,6 +80,12 @@ class JarvisVoiceService : Service() {
                 try {
                     while (true) {
                         container.hotwordDetector.awaitWakeWord()
+                        // JARVIS가 기본 어시스턴트면 시리처럼 화면 위에 어시스턴트 창을 띄운다.
+                        if (com.jarvis.app.assist.JarvisInteractionService.showOverlay(greet = true)) {
+                            val started = withTimeoutOrNull(5_000) { controller.voiceActive.first { it } }
+                            if (started != null) break else continue
+                        }
+                        // 아니면 화면 없이 음성으로만 응답한다.
                         if (controller.onWakeWordDetected()) break
                     }
                 } catch (e: HotwordUnavailableException) {

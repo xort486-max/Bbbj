@@ -104,6 +104,7 @@ class MainActivity : ComponentActivity() {
                 LifecycleEventEffect(Lifecycle.Event.ON_START) {
                     val granted = context.hasPermission(Manifest.permission.RECORD_AUDIO)
                     controller.setMicPermission(granted)
+                    controller.setDefaultAssistant(context.isDefaultAssistant())
                     if (granted && ui.voiceSettings.wakeWordEnabled && container.hotwordModels.isReady && !ui.wakeServiceRunning) {
                         JarvisVoiceService.start(context)
                     }
@@ -148,6 +149,15 @@ class MainActivity : ComponentActivity() {
                             onOpenBatterySettings = {
                                 runCatching { context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
                             },
+                            onOpenDefaultAssistantSettings = {
+                                runCatching { context.startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)) }
+                                    .recoverCatching { context.startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) }
+                            },
+                            onAddQuickSettingsTile = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                { context.requestAddJarvisTile() }
+                            } else {
+                                null
+                            },
                         ),
                     )
                 } else {
@@ -165,6 +175,7 @@ class MainActivity : ComponentActivity() {
                                     controller.selectFeature(feature)
                                 }
                             },
+                            onSetupAssistant = { showSettings = true },
                             onMicrophone = {
                                 if (ui.isListening || ui.isSpeaking || ui.voiceSessionActive) {
                                     controller.microphoneTapped()
@@ -182,3 +193,27 @@ class MainActivity : ComponentActivity() {
 
 private fun Context.hasPermission(permission: String): Boolean =
     ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+
+/** JARVIS가 기본 디지털 어시스턴트인지 (Android 10+ RoleManager). */
+private fun Context.isDefaultAssistant(): Boolean {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        val roles = getSystemService(android.app.role.RoleManager::class.java)
+        if (roles != null && roles.isRoleAvailable(android.app.role.RoleManager.ROLE_ASSISTANT)) {
+            return roles.isRoleHeld(android.app.role.RoleManager.ROLE_ASSISTANT)
+        }
+    }
+    val current = Settings.Secure.getString(contentResolver, "assistant") ?: return false
+    return current.startsWith("$packageName/")
+}
+
+/** 빠른 설정에 '자비스' 타일 추가 요청 (Android 13+). */
+@androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
+private fun Context.requestAddJarvisTile() {
+    val manager = getSystemService(android.app.StatusBarManager::class.java) ?: return
+    manager.requestAddTileService(
+        android.content.ComponentName(this, com.jarvis.app.assist.JarvisTileService::class.java),
+        getString(R.string.tile_label),
+        android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_stat_jarvis),
+        mainExecutor,
+    ) { }
+}

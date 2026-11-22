@@ -76,6 +76,9 @@ data class SettingsActions(
     val onDownloadHotwordModel: () -> Unit = {},
     val onDeleteHotwordModel: () -> Unit = {},
     val onOpenBatterySettings: () -> Unit = {},
+    val onOpenDefaultAssistantSettings: () -> Unit = {},
+    /** Android 13+에서만 non-null — 빠른 설정 타일 추가 요청 */
+    val onAddQuickSettingsTile: (() -> Unit)? = null,
 )
 
 /** 앱 설정: 백엔드 주소, 앱 인증 토큰(Keystore 암호화), 디자인 점검(디버그 빌드). */
@@ -167,6 +170,7 @@ fun SettingsScreen(
             Hint("백엔드의 JARVIS_APP_TOKEN 값과 같아야 합니다. Android Keystore 키로 암호화해 이 기기에만 저장합니다.")
         }
 
+        AssistantSetupSection(ui, actions)
         VoiceSection(ui, hotwordStatus, actions)
 
         Section("// CONNECTION") {
@@ -206,6 +210,46 @@ fun SettingsScreen(
             StatusText("개발 단계", "PHASE 3 — 음성")
         }
         Spacer(Modifier.padding(8.dp))
+    }
+}
+
+@Composable
+private fun AssistantSetupSection(ui: MainUiState, actions: SettingsActions) {
+    Section("// 시리처럼 쓰기") {
+        Hint("마이크 버튼 없이 측면 버튼·홈 버튼을 길게 누르거나 \"자비스\"라고 부르면, 어떤 화면에서든 JARVIS가 바로 떠서 듣습니다.")
+        StepRow(
+            done = ui.isDefaultAssistant,
+            title = "1. 기본 디지털 어시스턴트로 지정",
+            detail = if (ui.isDefaultAssistant) "지정됨 — 홈/측면 버튼 길게 누르기로 호출" else "설정 > 기본 앱 > 디지털 어시스턴트 앱 > JARVIS 선택",
+        )
+        if (!ui.isDefaultAssistant) {
+            Button(onClick = actions.onOpenDefaultAssistantSettings) { Text("기본 어시스턴트 설정 열기") }
+        }
+        StepRow(
+            done = ui.voiceSettings.wakeWordEnabled,
+            title = "2. \"자비스\" 호출 대기 켜기",
+            detail = if (ui.voiceSettings.wakeWordEnabled) "켜짐 — 앱이 꺼져 있어도 호출 가능" else "아래 \"자비스\" 호출 항목에서 모델을 받고 켜세요",
+        )
+        Hint(
+            "삼성 갤럭시: 설정 > 유용한 기능 > 측면 버튼 > 길게 누르기에서 '디지털 어시스턴트'를 고르면 측면 버튼으로 호출됩니다 " +
+                "(One UI 버전에 따라 메뉴 이름이 다를 수 있음). 제스처 내비게이션은 화면 아래 모서리에서 대각선으로 쓸어 올리면 호출됩니다.",
+        )
+        actions.onAddQuickSettingsTile?.let { add ->
+            OutlinedButton(onClick = add) { Text("빠른 설정에 '자비스' 타일 추가") }
+        }
+        Hint("앱 아이콘을 길게 누르면 '자비스에게 말하기' 바로가기도 있습니다.")
+    }
+}
+
+@Composable
+private fun StepRow(done: Boolean, title: String, detail: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(if (done) "✓" else "○", style = JarvisType.hud(16.sp, FontWeight.Bold, if (done) JarvisColors.Ok else JarvisColors.TextDim))
+        Spacer(Modifier.padding(start = 8.dp))
+        Column {
+            Text(title, style = JarvisType.body(14.sp))
+            Text(detail, style = JarvisType.body(11.sp, color = if (done) JarvisColors.Ok else JarvisColors.TextDim))
+        }
     }
 }
 

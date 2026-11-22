@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 백엔드 서버 접속, 호출어 모델 다운로드 -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -41,7 +42,77 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- 시리처럼 다른 앱 위에 뜨는 어시스턴트 화면 -->
+        <activity
+            android:name=".assist.AssistActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.jarvis.assistant.assist"
+            android:theme="@style/Theme.Jarvis.Assist">
+            <!-- 어시스턴트 호출 (홈/측면 버튼 길게 누르기 등) -->
+            <intent-filter>
+                <action android:name="android.intent.action.ASSIST" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- 블루투스 헤드셋 버튼 등 음성 명령 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VOICE_COMMAND" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- 기본 디지털 어시스턴트 등록 -->
+        <service
+            android:name=".assist.JarvisInteractionService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_VOICE_INTERACTION">
+            <meta-data
+                android:name="android.voice_interaction"
+                android:resource="@xml/jarvis_interaction_service" />
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".assist.JarvisSessionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_VOICE_INTERACTION" />
+        <!--
+          휴대폰의 "음성 입력" 서비스로 다른 앱이 호출하므로 exported가 필요하다.
+          Android RecognitionService 기본 구현이 호출한 앱의 RECORD_AUDIO 권한을 확인한 뒤에만 onStartListening을 부른다.
+        -->
+        <service
+            android:name=".assist.JarvisRecognitionService"
+            android:exported="true"
+            android:label="@string/app_name"
+            tools:ignore="ExportedService">
+            <intent-filter>
+                <action android:name="android.speech.RecognitionService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.speech"
+                android:resource="@xml/jarvis_recognition_service" />
+        </service>
+
+        <!-- 빠른 설정 타일 -->
+        <service
+            android:name=".assist.JarvisTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_jarvis"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
         <service
             android:name=".voice.JarvisVoiceService"

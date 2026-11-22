@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">JARVIS</string>
+    <string name="shortcut_talk_short">말하기</string>
+    <string name="shortcut_talk_long">자비스에게 말하기</string>
+    <string name="tile_label">자비스</string>
 </resources>

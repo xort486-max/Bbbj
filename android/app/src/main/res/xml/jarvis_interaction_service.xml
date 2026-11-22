@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 기본 디지털 어시스턴트 등록 정보 -->
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="com.jarvis.app.assist.JarvisSessionService"
+    android:recognitionService="com.jarvis.app.assist.JarvisRecognitionService"
+    android:settingsActivity="com.jarvis.app.MainActivity"
+    android:supportsAssist="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="false" />

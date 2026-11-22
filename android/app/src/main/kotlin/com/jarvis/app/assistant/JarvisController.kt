@@ -86,7 +86,13 @@ data class MainUiState(
     val wakeServiceRunning: Boolean = false,
     /** 음성 세션(듣기→처리→읽기) 진행 중 */
     val voiceSessionActive: Boolean = false,
+    /** JARVIS가 휴대폰의 기본 디지털 어시스턴트로 지정되어 있는지 */
+    val isDefaultAssistant: Boolean = false,
 ) {
+    /** 시리처럼 쓰기 위한 설정(기본 어시스턴트 · 호출어 대기)이 아직 남아 있는지 */
+    val needsAssistantSetup: Boolean
+        get() = voiceAvailable && (!isDefaultAssistant || !voiceSettings.wakeWordEnabled)
+
     val state: JarvisState get() = machine.state
 
     val microphone: MicrophoneStatus
@@ -361,6 +367,10 @@ class JarvisController(
         _ui.update { it.copy(micPermission = granted, voiceAvailable = voiceInput.isAvailable()) }
     }
 
+    fun setDefaultAssistant(isDefault: Boolean) {
+        _ui.update { it.copy(isDefaultAssistant = isDefault) }
+    }
+
     fun setWakeServiceRunning(running: Boolean) {
         _ui.update { it.copy(wakeServiceRunning = running) }
     }
@@ -391,6 +401,19 @@ class JarvisController(
         val ui = _ui.value
         if (_voiceActive.value || ui.state.isBusy || !ui.micPermission) return false
         startVoiceSession(greet = true)
+        return true
+    }
+
+    /**
+     * 어시스턴트 화면(측면 버튼·호출어·타일)에서 바로 듣기 시작한다. 진행 중인 작업이 있으면 중단하고 새로 듣는다.
+     * 권한이 없거나 인식기를 쓸 수 없으면 false.
+     */
+    fun startAssistListening(greet: Boolean): Boolean {
+        val ui = _ui.value
+        if (!ui.micPermission || !voiceInput.isAvailable()) return false
+        if (_voiceActive.value) return true
+        if (ui.state.isBusy) cancelCurrent()
+        startVoiceSession(greet)
         return true
     }
 

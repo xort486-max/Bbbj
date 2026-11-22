@@ -21,7 +21,9 @@ import kotlinx.coroutines.flow.flowOn
  */
 class AndroidVoiceInput(private val context: Context) : VoiceInput {
 
-    override fun isAvailable(): Boolean = SpeechRecognizer.isRecognitionAvailable(context)
+    override fun isAvailable(): Boolean =
+        RecognizerPicker.external(context) != null ||
+            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context))
 
     override fun listen(language: String): Flow<VoiceEvent> = callbackFlow {
         var recognizer: SpeechRecognizer? = null
@@ -40,7 +42,10 @@ class AndroidVoiceInput(private val context: Context) : VoiceInput {
             val created = if (onDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
             } else {
-                SpeechRecognizer.createSpeechRecognizer(context)
+                // 기본값 대신 외부 인식 서비스를 직접 지정 (JARVIS가 기본 어시스턴트일 때 자기 자신 호출 방지)
+                RecognizerPicker.external(context)
+                    ?.let { SpeechRecognizer.createSpeechRecognizer(context, it) }
+                    ?: SpeechRecognizer.createSpeechRecognizer(context)
             }
             recognizer = created
             created.setRecognitionListener(object : RecognitionListener {

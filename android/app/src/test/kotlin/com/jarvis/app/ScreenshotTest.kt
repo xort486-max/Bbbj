@@ -156,6 +156,50 @@ class ScreenshotTest {
     }
 
     @Test
+    fun assistOverlayAnswer() {
+        val log = ConversationLog()
+            .append(ConversationMessage(ConversationMessage.Role.USER, "오늘 서울 날씨 어때?"))
+            .append(
+                ConversationMessage(
+                    ConversationMessage.Role.ASSISTANT,
+                    "[화면 점검용 예시] 오늘 서울은 대체로 맑고 최고 기온은 5도입니다.",
+                    AiEngine.GOOGLE,
+                    sources = listOf(com.jarvis.core.model.SourceLink("weather.go.kr", "https://weather.go.kr")),
+                    sourceProvider = "google",
+                ),
+            )
+        compose.setContent {
+            JarvisTheme {
+                com.jarvis.app.assist.AssistOverlay(
+                    ui = MainUiState(machine = JarvisStateMachine().forced(JarvisState.Completed), log = log,
+                        voiceAvailable = true, micPermission = true, isSpeaking = true, audioLevel = 0.35f),
+                    messages = log.messages,
+                    micPermission = true,
+                    onDismiss = {}, onMic = {}, onOpenApp = {},
+                )
+            }
+        }
+        compose.onRoot().captureRoboImage("screenshots/assist_overlay.png")
+    }
+
+    @Test
+    fun assistOverlayListening() {
+        compose.setContent {
+            JarvisTheme {
+                com.jarvis.app.assist.AssistOverlay(
+                    ui = MainUiState(machine = JarvisStateMachine().forced(JarvisState.Listening),
+                        voiceAvailable = true, micPermission = true, isListening = true, voiceSessionActive = true,
+                        partialTranscript = "내일 아침 일정", audioLevel = 0.7f),
+                    messages = emptyList(),
+                    micPermission = true,
+                    onDismiss = {}, onMic = {}, onOpenApp = {},
+                )
+            }
+        }
+        compose.onRoot().captureRoboImage("screenshots/assist_listening.png")
+    }
+
+    @Test
     fun mainError() = render(
         MainUiState(
             machine = JarvisStateMachine().forced(JarvisState.Error("백엔드에 연결할 수 없습니다")),

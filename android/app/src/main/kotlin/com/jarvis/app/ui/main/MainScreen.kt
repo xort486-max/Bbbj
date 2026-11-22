@@ -3,6 +3,7 @@ package com.jarvis.app.ui.main
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,6 +48,7 @@ data class MainActions(
     val onSubmit: (String) -> Unit = {},
     val onFeature: (JarvisFeature) -> Unit = {},
     val onMicrophone: () -> Unit = {},
+    val onSetupAssistant: () -> Unit = {},
 )
 
 /**
@@ -71,6 +73,7 @@ fun MainScreen(ui: MainUiState, actions: MainActions) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             StatusHeader(state, ui.microphone, actions.onSettings)
+            if (ui.needsAssistantSetup) AssistantSetupBanner(actions.onSetupAssistant)
             EngineStatusStrip(ui.backend, ui.engines, state.activeEngine, ui.usage, actions.onRefresh)
 
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -99,6 +102,27 @@ fun MainScreen(ui: MainUiState, actions: MainActions) {
                 onMicrophone = actions.onMicrophone,
             )
         }
+    }
+}
+
+/** 시리처럼 쓰기 설정 안내 (기본 어시스턴트 · 호출어 대기를 아직 안 켠 경우). */
+@Composable
+private fun AssistantSetupBanner(onClick: () -> Unit) {
+    androidx.compose.foundation.layout.Row(
+        Modifier
+            .fillMaxWidth()
+            .background(JarvisColors.Cyan.copy(alpha = 0.10f), androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("✦ ", style = JarvisType.body(14.sp, color = JarvisColors.Cyan))
+        Text(
+            "버튼 없이 \"자비스\"로 부르기 — 시리처럼 쓰기 설정",
+            style = JarvisType.body(13.sp, FontWeight.Medium, JarvisColors.TextPrimary),
+            modifier = Modifier.weight(1f),
+        )
+        Text("설정 ›", style = JarvisType.body(13.sp, FontWeight.SemiBold, JarvisColors.Cyan))
     }
 }
 

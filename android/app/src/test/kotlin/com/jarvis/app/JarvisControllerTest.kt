@@ -436,4 +436,39 @@ class JarvisControllerTest {
         assertEquals(com.jarvis.app.assistant.MicrophoneStatus.WAKE, mic)
         assertTrue(mic.isLive, "호출 대기 중에도 마이크 사용 중으로 표시")
     }
+
+    // --- 시리처럼: 어시스턴트 호출 ---
+
+    @Test
+    fun assistInvocationStartsListeningImmediately() = runTest(dispatcher) {
+        val assist = FakeAssistService(*answerEvents)
+        val vm = model(url = "https://jarvis.example.com", assist = assist,
+            voiceIn = FakeVoiceInput(FakeVoiceInput.said("오늘 날씨")), voiceOut = FakeVoiceOutput())
+        vm.setMicPermission(true)
+        runCurrent()
+        assertTrue(vm.startAssistListening(greet = false))
+        runCurrent()
+        assertEquals("오늘 날씨", assist.calls.single().second)
+    }
+
+    @Test
+    fun assistInvocationInterruptsBusyWorkAndNeedsPermission() = runTest(dispatcher) {
+        val vm = model(voiceIn = FakeVoiceInput(FakeVoiceInput.said("새 질문")), voiceOut = FakeVoiceOutput())
+        assertFalse(vm.startAssistListening(greet = false), "권한 없으면 시작 안 함")
+        vm.setMicPermission(true)
+        vm.debugForceState(JarvisState.Reasoning)
+        assertTrue(vm.startAssistListening(greet = false))
+        assertTrue(vm.voiceActive.value)
+    }
+
+    @Test
+    fun setupBannerShownUntilAssistantAndWakeWordConfigured() = runTest(dispatcher) {
+        val vm = model(voiceOut = FakeVoiceOutput())
+        runCurrent()
+        assertTrue(vm.ui.value.needsAssistantSetup)
+        vm.setDefaultAssistant(true)
+        vm.updateVoiceSettings { it.copy(wakeWordEnabled = true) }
+        runCurrent()
+        assertFalse(vm.ui.value.needsAssistantSetup)
+    }
 }
